@@ -100,10 +100,8 @@ defmodule Minion.Delivery do
       %Delivery{alert_id: alert.id, person_id: person.id, channel: channel}
       |> Repo.insert!()
 
-    Oban.insert(
-      Minion.Delivery.Worker.new(%{"delivery_id" => delivery.id},
-        queue: to_string(channel)
-      )
-    )
+    %{"delivery_id" => delivery.id}
+    |> Minion.Delivery.Worker.new(queue: to_string(channel))
+    |> Oban.insert!()
   end
 end
