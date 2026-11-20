@@ -28,7 +28,31 @@ defmodule Minion.Delivery.WorkerTest do
       delivery = Repo.get(Delivery, delivery.id)
       assert delivery.status == :failed
       assert delivery.attempts == 1
-      assert delivery.last_error == "not_implemented"
+      assert delivery.last_error == ":not_implemented"
+    end
+
+    test "records the error when the mail server is unreachable" do
+      mailer_config = Application.fetch_env!(:minion, Minion.Mailer)
+
+      Application.put_env(:minion, Minion.Mailer,
+        adapter: Swoosh.Adapters.SMTP,
+        relay: "localhost",
+        port: 1,
+        ssl: false,
+        tls: :never,
+        auth: :never,
+        retries: 0
+      )
+
+      on_exit(fn -> Application.put_env(:minion, Minion.Mailer, mailer_config) end)
+      %{delivery: delivery} = fixture(:email)
+
+      Worker.perform(%Oban.Job{args: %{"delivery_id" => delivery.id}})
+
+      delivery = Repo.get(Delivery, delivery.id)
+      assert delivery.status == :failed
+      assert delivery.attempts == 1
+      assert delivery.last_error =~ "econnrefused"
     end
   end
 

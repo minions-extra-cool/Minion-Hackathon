@@ -26,7 +26,7 @@ defmodule Minion.Delivery.Worker do
         Delivery.changeset(delivery, %{
           status: :failed,
           attempts: delivery.attempts + 1,
-          last_error: to_string(reason)
+          last_error: inspect(reason)
         })
         |> Repo.update!()
     end
