@@ -5,6 +5,7 @@ config :minion, Minion.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
+  port: 5433,
   database: "minion_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
@@ -75,3 +76,11 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+config :minion, Minion.Mailer,
+  adapter: Swoosh.Adapters.SMTP,
+  relay: "localhost",
+  port: 1025,
+  ssl: false,
+  tls: :never,
+  auth: :never

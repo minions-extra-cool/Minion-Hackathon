@@ -36,6 +36,10 @@ config :phoenix_live_view,
 # at the `config/runtime.exs`.
 config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Local
 
+config :minion, :kafka,
+  brokers: [{"localhost", 19092}],
+  events_topic: "events"
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
