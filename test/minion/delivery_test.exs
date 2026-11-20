@@ -113,6 +113,55 @@ defmodule Minion.DeliveryTest do
     end
   end
 
+  describe "choosing channels from preferences" do
+    defp channels_at(preferences, severity, time) do
+      team = insert_team()
+      insert_person(team, "Anna", preferences)
+      rule = insert_rule(team)
+
+      alert = insert_alert(rule, severity)
+      Dispatch.dispatch(alert, time)
+
+      Repo.all(from d in Delivery, where: d.alert_id == ^alert.id, select: d.channel)
+      |> Enum.sort()
+    end
+
+    @anna %{
+      "critical" => [%{"channels" => ["sms"], "hours" => [8, 20]}, %{"channels" => ["email"]}],
+      "warning" => [%{"channels" => ["email"]}],
+      "info" => []
+    }
+
+    test "Anna gets critical alerts by SMS during the day and by email at night" do
+      assert channels_at(@anna, :critical, ~U[2026-11-20 10:00:00Z]) == [:sms]
+      assert channels_at(@anna, :critical, ~U[2026-11-20 22:00:00Z]) == [:email]
+    end
+
+    test "the hours window includes its start hour and excludes its end hour" do
+      assert channels_at(@anna, :critical, ~U[2026-11-20 08:00:00Z]) == [:sms]
+      assert channels_at(@anna, :critical, ~U[2026-11-20 20:00:00Z]) == [:email]
+    end
+
+    test "a window that wraps past midnight applies overnight only" do
+      night_shift = %{
+        "critical" => [%{"channels" => ["phone"], "hours" => [22, 6]}, %{"channels" => ["email"]}]
+      }
+
+      assert channels_at(night_shift, :critical, ~U[2026-11-20 23:00:00Z]) == [:phone]
+      assert channels_at(night_shift, :critical, ~U[2026-11-20 03:00:00Z]) == [:phone]
+      assert channels_at(night_shift, :critical, ~U[2026-11-20 12:00:00Z]) == [:email]
+    end
+
+    test "each severity uses its own entries" do
+      assert channels_at(@anna, :warning, ~U[2026-11-20 10:00:00Z]) == [:email]
+    end
+
+    test "an empty list or a missing severity means UI only" do
+      assert channels_at(@anna, :info, ~U[2026-11-20 10:00:00Z]) == []
+      assert channels_at(%{}, :critical, ~U[2026-11-20 10:00:00Z]) == []
+    end
+  end
+
   defp delivered_person_ids do
     Repo.all(from d in Delivery, select: d.person_id, order_by: d.id)
   end

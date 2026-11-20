@@ -81,9 +81,14 @@ defmodule Minion.Delivery do
 
   defp channel_from(channel) when is_atom(channel), do: channel
 
-  defp applies?(%{"hours" => [from, to]}, now) do
+  defp applies?(%{"hours" => [from, to]}, now) when from <= to do
     hour = hour_in_zone(now)
     from <= hour and hour < to
+  end
+
+  defp applies?(%{"hours" => [from, to]}, now) do
+    hour = hour_in_zone(now)
+    hour >= from or hour < to
   end
 
   defp applies?(%{} = _entry, _now), do: true
