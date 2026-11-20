@@ -18,6 +18,7 @@ defmodule Minion.Alerts.Alert do
     field :title, :string
     field :body, :string
     field :sample_event, :map
+    field :closed_at, :utc_datetime_usec
     belongs_to :rule, Rule
     has_many :deliveries, Delivery
     timestamps()
@@ -37,7 +38,8 @@ defmodule Minion.Alerts.Alert do
       :last_seen,
       :title,
       :body,
-      :sample_event
+      :sample_event,
+      :closed_at
     ])
     |> validate_required([
       :owner_type,
@@ -49,6 +51,6 @@ defmodule Minion.Alerts.Alert do
       :title,
       :sample_event
     ])
-    |> unique_constraint(:fingerprint, name: :alerts_unresolved_fingerprint_index)
+    |> unique_constraint(:fingerprint, name: :alerts_active_fingerprint_index)
   end
 end

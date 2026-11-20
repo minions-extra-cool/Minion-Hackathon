@@ -5,7 +5,8 @@ defmodule Minion.Alerts.Processor do
   alias Minion.Repo
   alias Minion.Rules.{Fingerprint, Matcher, Rule, Template}
 
-  @unresolved_fingerprint {:unsafe_fragment, "(fingerprint) WHERE status <> 'resolved'"}
+  @active_fingerprint {:unsafe_fragment,
+                       "(fingerprint) WHERE status <> 'resolved' AND closed_at IS NULL"}
 
   @type outcome :: {:created | :updated, Alert.t()}
 
@@ -64,7 +65,7 @@ defmodule Minion.Alerts.Processor do
     saved =
       Repo.insert!(alert,
         on_conflict: [inc: [count: 1], set: [last_seen: now, updated_at: now]],
-        conflict_target: @unresolved_fingerprint,
+        conflict_target: @active_fingerprint,
         returning: true
       )
 
