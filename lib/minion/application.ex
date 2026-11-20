@@ -13,6 +13,8 @@ defmodule Minion.Application do
       {DNSCluster, query: Application.get_env(:minion, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Minion.PubSub},
       {Oban, Application.fetch_env!(:minion, Oban)},
+      Minion.Kafka,
+      Minion.Kafka.Topics,
       # Start to serve requests, typically the last entry
       MinionWeb.Endpoint
     ]
