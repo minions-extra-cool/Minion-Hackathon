@@ -12,6 +12,7 @@ defmodule Minion.Kafka.Topics do
 
   def start_link do
     ensure(Kafka.events_topic(), Kafka.config(:events_partitions))
+    ensure(Kafka.dead_letter_topic(), 1)
     :ignore
   end
 

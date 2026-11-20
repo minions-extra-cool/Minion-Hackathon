@@ -29,7 +29,8 @@ config :minion, Oban, testing: :manual
 config :minion, :kafka,
   brokers: [{"localhost", 19092}],
   events_topic: "events_test",
-  events_partitions: 2
+  events_partitions: 2,
+  dead_letter_topic: "events_dead_test"
 
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
