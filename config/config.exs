@@ -43,7 +43,7 @@ config :minion, Oban,
 config :minion, :kafka,
   brokers: [{"localhost", 19092}],
   events_topic: "events",
-  events_partitions: 6
+  events_partitions: 24
 
 # Configure esbuild (the version is required)
 config :esbuild,

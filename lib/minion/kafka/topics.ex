@@ -17,6 +17,13 @@ defmodule Minion.Kafka.Topics do
 
   def ensure(topic, partitions, attempt \\ 1) do
     case :brod.get_partitions_count_safe(Kafka.client(), topic) do
+      {:ok, count} when count < partitions ->
+        Logger.warning(
+          "Kafka topic #{topic} has #{count} partitions, fewer than the configured #{partitions}"
+        )
+
+        :ok
+
       {:ok, _count} ->
         :ok
 
