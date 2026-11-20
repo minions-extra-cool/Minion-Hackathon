@@ -53,10 +53,13 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 - Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `matches` (`*` wildcard), `exists`.
 - Matching semantics (`Minion.Rules.Matcher`): text comparisons ignore case; numbers compare by value even when either side is a string (`"500"` equals `500`); a missing field makes the condition false, including `neq`; an unknown operator or malformed node is false, never an error. Paths can index lists (`payload.errors.0.code`).
 - Templates (`Minion.Rules.Template`): `{{payload.host}}` is replaced by the value at that path; missing values render as empty text, objects as JSON.
-- Fingerprint: hash of the rule id plus the values at `dedup.key`. At most one unresolved alert per fingerprint (enforced by a unique index).
-- `quiet_sec`: an unresolved alert with no events for this long is auto-resolved by `Minion.Alerts.AutoResolveWorker`, which runs every 30 seconds. A rule without a numeric `quiet_sec` never auto-resolves.
+- Fingerprint: hash of the rule id plus the values at `dedup.key`.
+- Fingerprint uniqueness: at most one *active* alert per fingerprint, i.e. not resolved and not closed (`alerts_active_fingerprint_index`).
+- `quiet_sec`: an active alert with no events for this long is **closed**: `closed_at` is set, its status is unchanged, and it stops absorbing events. The next event with that fingerprint opens a new alert and notifies again. A rule without a numeric `quiet_sec` never closes its alerts.
+- Auto-resolve is a **team** setting, `teams.auto_resolve_after`, e.g. `{"info": 3600, "warning": 14400}`: an unresolved alert of that severity with no events for that many seconds is resolved. Critical alerts never auto-resolve; a person must resolve them. Alerts owned by a person use that person's team setting.
+- `Minion.Alerts.QuietSweepWorker` runs both checks every 30 seconds.
 
-**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `title`, `body`, `sample_event`.
+**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `closed_at`, `title`, `body`, `sample_event`.
 
 **Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 
@@ -68,7 +71,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "info": []}
 ```
 
-**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the auto-resolve sweep broadcasts `{:alert, :resolved, %Alert{}}`.
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`.
 
 **Dispatch contract:** `Minion.Delivery.dispatch(alert)` runs inside the pipeline's transaction. Return `:ok`, or `{:error, reason}` (or raise) to roll back the alert; the pipeline then retries the event.
 
