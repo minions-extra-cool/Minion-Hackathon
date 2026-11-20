@@ -42,7 +42,7 @@ config :minion, Oban,
   plugins: [
     {Oban.Plugins.Cron,
      crontab: [
-       {"* * * * *", Minion.Alerts.AutoResolveWorker, args: %{schedule_half_minute_run: true}}
+       {"* * * * *", Minion.Alerts.QuietSweepWorker, args: %{schedule_half_minute_run: true}}
      ]}
   ]
 
