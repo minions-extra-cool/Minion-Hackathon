@@ -48,6 +48,9 @@ defmodule Minion.Delivery do
 
   defp people_for_notify_entry(%{"type" => "oncall", "id" => id}) do
     case Repo.get(Team, id) do
+      nil ->
+        []
+
       %Team{oncall_person_id: nil} ->
         []
 
