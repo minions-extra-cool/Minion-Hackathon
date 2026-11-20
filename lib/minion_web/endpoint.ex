@@ -43,13 +43,19 @@ defmodule MinionWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
-  plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
-    pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+  @parsers Plug.Parsers.init(
+             parsers: [:urlencoded, :multipart, :json],
+             pass: ["*/*"],
+             json_decoder: Phoenix.json_library()
+           )
+
+  plug :parse_body_unless_ingest
 
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
   plug MinionWeb.Router
+
+  defp parse_body_unless_ingest(%Plug.Conn{path_info: ["ingest" | _]} = conn, _opts), do: conn
+  defp parse_body_unless_ingest(conn, _opts), do: Plug.Parsers.call(conn, @parsers)
 end
