@@ -13,11 +13,16 @@ defmodule Minion.DeliveryTest do
 
   describe "dispatch/2" do
     test "writes no deliveries and no jobs when the surrounding transaction rolls back" do
-      rule = insert_rule()
+      team = insert_team()
+      insert_person(team, "Anna")
+      rule = insert_rule(team)
 
       Repo.transaction(fn ->
-        alert = insert_alert(rule)
-        Dispatch.dispatch(alert)
+        Dispatch.dispatch(insert_alert(rule), ~U[2026-11-20 10:00:00Z])
+
+        assert Repo.aggregate(Delivery, :count) == 1
+        assert Repo.aggregate(Oban.Job, :count) == 1
+
         Repo.rollback(:boom)
       end)
 
@@ -25,17 +30,34 @@ defmodule Minion.DeliveryTest do
       assert Repo.aggregate(Oban.Job, :count) == 0
     end
 
-    test "inserts one delivery and one job per person and channel" do
-      rule = insert_rule()
+    test "inserts one pending delivery and one job per person and channel" do
+      team = insert_team()
+      anna = insert_person(team, "Anna")
+      piotr = insert_person(team, "Piotr", %{"warning" => [%{"channels" => ["email", "sms"]}]})
+      rule = insert_rule(team)
 
       Dispatch.dispatch(insert_alert(rule), ~U[2026-11-20 10:00:00Z])
 
-      deliveries = Repo.all(from d in Delivery, preload: [:person])
+      deliveries =
+        Repo.all(from d in Delivery, select: {d.person_id, d.channel, d.status, d.id})
+
+      assert deliveries
+             |> Enum.map(fn {person, channel, status, _id} -> {person, channel, status} end)
+             |> Enum.sort() ==
+               Enum.sort([
+                 {anna.id, :email, :pending},
+                 {piotr.id, :email, :pending},
+                 {piotr.id, :sms, :pending}
+               ])
+
       jobs = Repo.all(Oban.Job)
 
-      assert length(deliveries) == length(jobs)
-      assert Enum.all?(deliveries, &(&1.status == :pending))
-      assert Enum.all?(jobs, &(&1.worker == Minion.Delivery.Worker))
+      assert jobs |> Enum.map(&{&1.args["delivery_id"], &1.queue}) |> Enum.sort() ==
+               deliveries
+               |> Enum.map(fn {_, channel, _, id} -> {id, to_string(channel)} end)
+               |> Enum.sort()
+
+      assert Enum.all?(jobs, &(&1.worker == "Minion.Delivery.Worker"))
     end
 
     test "resolves oncall to the team's oncall person" do
@@ -99,15 +121,17 @@ defmodule Minion.DeliveryTest do
     Repo.insert!(%Team{name: "ops-#{Ecto.UUID.generate()}"})
   end
 
-  defp insert_person(team, name) do
+  defp insert_person(team, name, preferences \\ %{"warning" => [%{"channels" => ["email"]}]}) do
     Repo.insert!(%Person{
       team_id: team.id,
       name: name,
-      preferences: %{"warning" => [%{"channels" => ["email"]}]}
+      email: "#{String.downcase(name)}@minion.test",
+      phone: "+48100200300",
+      preferences: preferences
     })
   end
 
-  defp insert_rule(team \\ insert_team(), opts \\ []) do
+  defp insert_rule(team, opts \\ []) do
     notify = Keyword.get(opts, :notify, [%{"type" => "team", "id" => team.id}])
 
     Repo.insert!(%Rule{
