@@ -24,6 +24,8 @@ config :minion, MinionWeb.Endpoint,
 # In test we don't send emails
 config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Test
 
+config :minion, Oban, testing: :manual
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

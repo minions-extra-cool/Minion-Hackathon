@@ -36,6 +36,10 @@ config :phoenix_live_view,
 # at the `config/runtime.exs`.
 config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Local
 
+config :minion, Oban,
+  repo: Minion.Repo,
+  queues: [email: 10, sms: 10, phone: 10]
+
 config :minion, :kafka,
   brokers: [{"localhost", 19092}],
   events_topic: "events"

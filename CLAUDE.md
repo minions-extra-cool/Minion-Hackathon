@@ -35,21 +35,21 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "received_at": "ISO-8601", "payload": {}}
 ```
 
-**Rule** (`rules` table; `when`, `dedup`, `present`, `notify` are jsonb):
+**Rule** (`rules` table; `conditions`, `dedup`, `present`, `notify` are jsonb):
 
 ```json
 {
   "name": "Disk full",
   "owner_type": "team", "owner_id": "uuid",
   "severity": "info|warning|critical",
-  "when": {"all": [{"field": "payload.type", "op": "eq", "value": "DISK_FULL"}]},
+  "conditions": {"all": [{"field": "payload.type", "op": "eq", "value": "DISK_FULL"}]},
   "dedup": {"key": ["payload.host"], "quiet_sec": 600},
   "present": {"title": "Disk full on {{payload.host}}", "body": "", "fields": [], "color": "amber"},
   "notify": [{"type": "team|person|oncall", "id": "uuid"}]
 }
 ```
 
-- `when` nodes: `{"all": [...]}`, `{"any": [...]}`, or `{"field", "op", "value"}`. Fields are dot paths into the envelope.
+- `conditions` nodes (named this way because `when` is a reserved word in Elixir and SQL): `{"all": [...]}`, `{"any": [...]}`, or `{"field", "op", "value"}`. Fields are dot paths into the envelope.
 - Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `matches` (`*` wildcard), `exists`.
 - Fingerprint: hash of the rule id plus the values at `dedup.key`. At most one unresolved alert per fingerprint (enforced by a unique index).
 - `quiet_sec`: an unresolved alert with no events for this long is auto-resolved.

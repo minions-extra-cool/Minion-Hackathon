@@ -12,8 +12,7 @@ defmodule Minion.Application do
       Minion.Repo,
       {DNSCluster, query: Application.get_env(:minion, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Minion.PubSub},
-      # Start a worker by calling: Minion.Worker.start_link(arg)
-      # {Minion.Worker, arg},
+      {Oban, Application.fetch_env!(:minion, Oban)},
       # Start to serve requests, typically the last entry
       MinionWeb.Endpoint
     ]
