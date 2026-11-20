@@ -10,6 +10,9 @@ defmodule Minion.Channels.Email do
   @from "minion@minion.test"
 
   @impl Minion.Channel
+  def deliver(%Alert{}, %Person{email: email}) when email in [nil, ""],
+    do: {:error, :no_email_address}
+
   def deliver(%Alert{} = alert, %Person{} = person) do
     alert
     |> build_email(person)
@@ -43,23 +46,13 @@ defmodule Minion.Channels.Email do
   end
 
   defp html_body(alert, person) do
-    title =
-      alert.title
-      |> Phoenix.HTML.html_escape()
-      |> Phoenix.HTML.Safe.to_iodata()
-      |> IO.iodata_to_binary()
-
-    body =
-      alert.body
-      |> Phoenix.HTML.html_escape()
-      |> Phoenix.HTML.Safe.to_iodata()
-      |> IO.iodata_to_binary()
-
     """
-    <p>Hello #{person.name},</p>
-    <h2>#{title}</h2>
+    <p>Hello #{escape(person.name)},</p>
+    <h2>#{escape(alert.title)}</h2>
     <p><strong>Severity:</strong> #{alert.severity}</p>
-    <p>#{body}</p>
+    <p>#{escape(alert.body)}</p>
     """
   end
+
+  defp escape(text), do: text |> Phoenix.HTML.html_escape() |> Phoenix.HTML.safe_to_string()
 end

@@ -31,6 +31,30 @@ defmodule Minion.Delivery.WorkerTest do
       assert delivery.last_error == ":not_implemented"
     end
 
+    test "fails an email delivery to a person without an email address" do
+      %{delivery: delivery, person: person} = fixture(:email)
+      person |> Ecto.Changeset.change(email: nil) |> Repo.update!()
+
+      Worker.perform(%Oban.Job{args: %{"delivery_id" => delivery.id}})
+
+      delivery = Repo.get(Delivery, delivery.id)
+      assert delivery.status == :failed
+      assert delivery.last_error == ":no_email_address"
+    end
+
+    test "escapes names, titles and bodies in the HTML email" do
+      %{delivery: delivery, person: person, alert: alert} = fixture(:email)
+      person |> Ecto.Changeset.change(name: "<b>Anna</b>") |> Repo.update!()
+      alert |> Ecto.Changeset.change(title: "Disk <script>") |> Repo.update!()
+
+      Worker.perform(%Oban.Job{args: %{"delivery_id" => delivery.id}})
+
+      assert_received {:email, email}
+      assert email.html_body =~ "&lt;b&gt;Anna&lt;/b&gt;"
+      assert email.html_body =~ "Disk &lt;script&gt;"
+      refute email.html_body =~ "<script>"
+    end
+
     test "records the error when the mail server is unreachable" do
       mailer_config = Application.fetch_env!(:minion, Minion.Mailer)
 
