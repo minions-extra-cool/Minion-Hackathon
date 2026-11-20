@@ -58,7 +58,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 
-**Preferences** (`people.preferences`, jsonb). For each severity, the first entry whose `hours` contain the current hour wins; an entry without `hours` always applies. The UI feed always shows the alert, so an empty list means "UI only".
+**Preferences** (`people.preferences`, jsonb). For each severity, the first entry whose `hours` contain the current hour wins; an entry without `hours` always applies. The UI feed always shows the alert, so an empty list means "UI only". `hours: [from, to]` are whole UTC hours, `from` included and `to` excluded (`[8, 20]` is 08:00–19:59 UTC); a window with `from > to`, like `[22, 6]`, wraps past midnight.
 
 ```json
 {"critical": [{"channels": ["sms"], "hours": [8, 20]}, {"channels": ["email"]}],
