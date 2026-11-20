@@ -46,6 +46,8 @@ config :minion, :kafka,
   events_partitions: 24,
   dead_letter_topic: "events_dead"
 
+config :minion, :pipeline, enabled: true
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",

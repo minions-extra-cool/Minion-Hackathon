@@ -32,6 +32,8 @@ config :minion, :kafka,
   events_partitions: 2,
   dead_letter_topic: "events_dead_test"
 
+config :minion, :pipeline, enabled: false
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
