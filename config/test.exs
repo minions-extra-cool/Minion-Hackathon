@@ -34,6 +34,8 @@ config :minion, :kafka,
 
 config :minion, :pipeline, enabled: false
 
+config :minion, :kafka_sources, [%{topic: "workflow-events", source: "workflow-engine"}]
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 

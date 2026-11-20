@@ -27,7 +27,7 @@ defmodule Minion.Application do
 
   defp pipeline_children do
     if Application.fetch_env!(:minion, :pipeline)[:enabled] do
-      [Minion.Rules.Cache, Minion.Alerts.Pipeline]
+      [Minion.Rules.Cache, Minion.Alerts.Pipeline, Minion.Ingest.KafkaSource]
     else
       []
     end

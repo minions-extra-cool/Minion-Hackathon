@@ -54,6 +54,11 @@ config :minion, :kafka,
 
 config :minion, :pipeline, enabled: true
 
+config :minion, :kafka_sources, [
+  %{topic: "workflow-events", source: "workflow-engine"},
+  %{topic: "trade-events", source: "trading-platform"}
+]
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
