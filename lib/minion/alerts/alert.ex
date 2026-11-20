@@ -4,6 +4,8 @@ defmodule Minion.Alerts.Alert do
   alias Minion.Delivery.Delivery
   alias Minion.Rules.Rule
 
+  @type t :: %__MODULE__{}
+
   schema "alerts" do
     field :owner_type, Ecto.Enum, values: [:team, :person]
     field :owner_id, :binary_id

@@ -3,6 +3,8 @@ defmodule Minion.Accounts.Person do
 
   alias Minion.Accounts.Team
 
+  @type t :: %__MODULE__{}
+
   schema "people" do
     field :name, :string
     field :email, :string
