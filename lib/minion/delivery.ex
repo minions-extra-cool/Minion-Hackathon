@@ -1,6 +1,4 @@
 defmodule Minion.Delivery do
-  @moduledoc false
-
   import Ecto.Query
 
   alias Minion.Accounts.{Person, Team}
@@ -12,10 +10,8 @@ defmodule Minion.Delivery do
   @channels [:email, :sms, :phone]
   @preference_hours_zone "Etc/UTC"
 
-  @spec dispatch(Alert.t(), DateTime.t() | nil) :: :ok
-  def dispatch(%Alert{} = alert, now \\ nil) do
-    now = now || DateTime.utc_now()
-
+  @spec dispatch(Alert.t(), DateTime.t()) :: :ok
+  def dispatch(%Alert{} = alert, now \\ DateTime.utc_now()) do
     alert
     |> people_to_notify()
     |> Enum.uniq_by(& &1.id)

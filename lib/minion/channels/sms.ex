@@ -1,6 +1,4 @@
 defmodule Minion.Channels.Sms do
-  @moduledoc false
-
   @behaviour Minion.Channel
 
   alias Minion.Accounts.Person

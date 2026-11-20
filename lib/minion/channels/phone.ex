@@ -1,6 +1,4 @@
 defmodule Minion.Channels.Phone do
-  @moduledoc false
-
   @behaviour Minion.Channel
 
   alias Minion.Accounts.Person

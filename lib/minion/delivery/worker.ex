@@ -1,6 +1,4 @@
 defmodule Minion.Delivery.Worker do
-  @moduledoc false
-
   use Oban.Worker, queue: :default, max_attempts: 1
 
   alias Minion.Delivery.Delivery
