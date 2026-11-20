@@ -54,7 +54,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 - Matching semantics (`Minion.Rules.Matcher`): text comparisons ignore case; numbers compare by value even when either side is a string (`"500"` equals `500`); a missing field makes the condition false, including `neq`; an unknown operator or malformed node is false, never an error. Paths can index lists (`payload.errors.0.code`).
 - Templates (`Minion.Rules.Template`): `{{payload.host}}` is replaced by the value at that path; missing values render as empty text, objects as JSON.
 - Fingerprint: hash of the rule id plus the values at `dedup.key`. At most one unresolved alert per fingerprint (enforced by a unique index).
-- `quiet_sec`: an unresolved alert with no events for this long is auto-resolved.
+- `quiet_sec`: an unresolved alert with no events for this long is auto-resolved by `Minion.Alerts.AutoResolveWorker`, which runs every 30 seconds. A rule without a numeric `quiet_sec` never auto-resolves.
 
 **Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `title`, `body`, `sample_event`.
 
@@ -68,7 +68,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "info": []}
 ```
 
-**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits.
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the auto-resolve sweep broadcasts `{:alert, :resolved, %Alert{}}`.
 
 **Dispatch contract:** `Minion.Delivery.dispatch(alert)` runs inside the pipeline's transaction. Return `:ok`, or `{:error, reason}` (or raise) to roll back the alert; the pipeline then retries the event.
 
