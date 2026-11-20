@@ -6,11 +6,13 @@ defmodule Minion.Delivery.Worker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"delivery_id" => delivery_id}}) do
-    delivery =
-      Delivery
-      |> Repo.get(delivery_id)
-      |> Repo.preload([:alert, :person])
+    case Repo.get(Delivery, delivery_id) do
+      nil -> {:cancel, :delivery_not_found}
+      delivery -> delivery |> Repo.preload([:alert, :person]) |> send_delivery()
+    end
+  end
 
+  defp send_delivery(delivery) do
     case channel_for(delivery.channel).deliver(delivery.alert, delivery.person) do
       :ok ->
         Delivery.changeset(delivery, %{

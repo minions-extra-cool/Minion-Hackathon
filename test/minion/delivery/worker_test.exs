@@ -55,6 +55,11 @@ defmodule Minion.Delivery.WorkerTest do
       refute email.html_body =~ "<script>"
     end
 
+    test "cancels the job when its delivery no longer exists" do
+      assert {:cancel, :delivery_not_found} =
+               Worker.perform(%Oban.Job{args: %{"delivery_id" => Ecto.UUID.generate()}})
+    end
+
     test "records the error when the mail server is unreachable" do
       mailer_config = Application.fetch_env!(:minion, Minion.Mailer)
 
