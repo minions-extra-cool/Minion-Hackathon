@@ -91,7 +91,13 @@ defmodule Minion.Alerts.QuietSweepTest do
       assert reload(warning).status == :open
 
       sweep_after(warning, 3601)
-      assert %Alert{status: :resolved, closed_at: %DateTime{}} = reload(warning)
+
+      assert %Alert{
+               status: :resolved,
+               closed_at: %DateTime{},
+               resolved_at: %DateTime{},
+               resolved_by_id: nil
+             } = reload(warning)
     end
 
     test "never resolves critical alerts, even if the setting names critical" do

@@ -1,8 +1,10 @@
 defmodule Minion.AI.Summary do
   alias Minion.Alerts.Alert
   alias Minion.Rules.Template
+  alias Minion.Runbooks
 
   @max_payload_chars 6_000
+  @max_runbook_chars 4_000
 
   @spec summarize(Alert.t(), module()) :: {:ok, String.t()} | {:error, term()}
   def summarize(%Alert{} = alert, client \\ default_client()) do
@@ -35,9 +37,9 @@ defmodule Minion.AI.Summary do
 
     """
     You are the on-call assistant for an engineering team. Summarise the alert below for the engineer who has to act on it.
-    Write short plain text: what happened, why it matters, and concrete next steps. Do not invent facts. Keep it under 200 words.
+    Write short plain text: what happened, why it matters, and concrete next steps. When the team's runbook is given, base the next steps on it. Do not invent facts. Keep it under 200 words.
 
-    #{details}#{fields_block}
+    #{details}#{fields_block}#{runbook_block(alert)}
 
     Payload of the first event:
     #{payload(alert.sample_event)}
@@ -50,16 +52,25 @@ defmodule Minion.AI.Summary do
 
   defp field_sections(_alert), do: []
 
+  defp runbook_block(alert) do
+    runbook = Runbooks.get_for_rule(alert.rule_id)
+
+    if Runbooks.blank?(runbook) do
+      ""
+    else
+      rendered = runbook |> Runbooks.render(alert.sample_event) |> truncate(@max_runbook_chars)
+      "\n\nTeam runbook for this rule:\n#{rendered}"
+    end
+  end
+
   defp payload(sample_event) do
     sample_event
     |> Jason.encode!(pretty: true)
-    |> truncate()
+    |> truncate(@max_payload_chars)
   end
 
-  defp truncate(text) when byte_size(text) <= @max_payload_chars, do: text
-
-  defp truncate(text),
-    do: String.slice(text, 0, @max_payload_chars) <> "\n(truncated)"
+  defp truncate(text, limit) when byte_size(text) <= limit, do: text
+  defp truncate(text, limit), do: String.slice(text, 0, limit) <> "\n(truncated)"
 
   defp status_text(%Alert{status: status} = alert) do
     if alert.closed_at, do: "#{status}, closed by quiet time", else: to_string(status)

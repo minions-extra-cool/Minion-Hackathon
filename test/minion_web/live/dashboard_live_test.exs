@@ -31,6 +31,26 @@ defmodule MinionWeb.DashboardLiveTest do
     assert has_element?(view, "#alerts-#{open.id} a", "Disk full on web-1")
   end
 
+  test "each row shows its rule's colour next to the title", %{
+    conn: conn,
+    team: team,
+    rule: rule
+  } do
+    coloured = alert_fixture(rule)
+    plain_rule = rule_fixture(team, %{present: %{"title" => "Plain"}})
+    plain = alert_fixture(plain_rule)
+
+    {:ok, view, _html} = live(conn, ~p"/")
+
+    assert has_element?(
+             view,
+             "#alerts-#{coloured.id}-color[data-color=amber]",
+             "Rule colour: amber"
+           )
+
+    refute has_element?(view, "#alerts-#{plain.id}-color")
+  end
+
   test "new alerts and counter changes appear without a refresh", %{conn: conn, rule: rule} do
     {:ok, view, _html} = live(conn, ~p"/")
 
@@ -49,7 +69,7 @@ defmodule MinionWeb.DashboardLiveTest do
     alert = alert_fixture(rule)
     {:ok, view, _html} = live(conn, ~p"/")
 
-    {:ok, _} = Minion.Alerts.acknowledge(alert.id)
+    {:ok, _} = Minion.Alerts.acknowledge(alert.id, person_fixture(team_fixture()).id)
 
     assert has_element?(view, "#alerts-#{alert.id} [data-status=acked]")
   end

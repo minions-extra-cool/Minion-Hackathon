@@ -8,7 +8,7 @@ defmodule Minion.Alerts.QuietSweep do
 
   @auto_resolve_sql """
   UPDATE alerts AS a
-  SET status = 'resolved', closed_at = coalesce(a.closed_at, $1::timestamp), updated_at = $1::timestamp
+  SET status = 'resolved', resolved_at = $1::timestamp, closed_at = coalesce(a.closed_at, $1::timestamp), updated_at = $1::timestamp
   FROM teams AS t
   WHERE t.id = coalesce(
           (SELECT p.team_id FROM people AS p WHERE a.owner_type = 'person' AND p.id = a.owner_id),

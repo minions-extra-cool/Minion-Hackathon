@@ -152,8 +152,28 @@ defmodule MinionWeb.AlertComponents do
     """
   end
 
-  defp rule_color(%Alert{rule: %{present: %{"color" => color}}}) when is_binary(color),
-    do: String.downcase(color)
+  attr :alert, Alert, required: true
+  attr :id, :string, default: nil
+
+  def rule_color_mark(assigns) do
+    assigns = assign(assigns, :color, rule_color(assigns.alert))
+
+    ~H"""
+    <span
+      :if={@color}
+      id={@id}
+      data-color={@color}
+      title={"Rule colour: #{@color}"}
+      class={["inline-block h-4 w-1 shrink-0", swatch_class(@color)]}
+    >
+      <span class="sr-only">Rule colour: {@color}</span>
+    </span>
+    """
+  end
+
+  defp rule_color(%Alert{rule: %{present: %{"color" => color}}})
+       when is_binary(color) and color != "",
+       do: String.downcase(color)
 
   defp rule_color(_alert), do: nil
 

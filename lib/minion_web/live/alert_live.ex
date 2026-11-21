@@ -21,6 +21,8 @@ defmodule MinionWeb.AlertLive do
        alert: alert,
        owner: Alerts.owner_name(alert),
        runbook: Runbooks.get_for_rule(alert.rule_id),
+       people: Alerts.list_people(),
+       acting_as: nil,
        resolve_step: nil,
        runbook_expanded: false,
        ai_summary: %AsyncResult{}
@@ -29,14 +31,35 @@ defmodule MinionWeb.AlertLive do
   end
 
   @impl true
+  def handle_event("act_as", %{"person_id" => person_id}, socket) do
+    acting_as = Enum.find(socket.assigns.people, &(&1.id == person_id))
+    {:noreply, assign(socket, :acting_as, acting_as)}
+  end
+
+  def handle_event(event, _params, %{assigns: %{acting_as: nil}} = socket)
+      when event in ["acknowledge", "ask_resolve", "confirm_resolve"],
+      do: {:noreply, put_flash(socket, :error, "Pick who you are first.")}
+
   def handle_event("acknowledge", _params, socket) do
     socket.assigns.alert.id
-    |> Alerts.acknowledge()
+    |> Alerts.acknowledge(socket.assigns.acting_as.id)
     |> after_transition(socket, "Someone already acknowledged or resolved this alert.")
   end
 
   def handle_event("ask_resolve", _params, socket),
     do: {:noreply, assign(socket, :resolve_step, :confirm)}
+
+  def handle_event("finish_resolve", params, socket) do
+    socket =
+      case Alerts.save_resolution_note(socket.assigns.alert.id, params["note"]) do
+        {:ok, alert} -> assign(socket, :alert, %{alert | rule: socket.assigns.alert.rule})
+        {:error, :not_resolved} -> socket
+      end
+
+    if params["next"] == "runbook" and socket.assigns.alert.rule,
+      do: {:noreply, push_navigate(socket, to: runbook_path(socket.assigns.alert))},
+      else: {:noreply, assign(socket, :resolve_step, nil)}
+  end
 
   def handle_event("expand_runbook", _params, socket),
     do: {:noreply, assign(socket, :runbook_expanded, true)}
@@ -48,7 +71,7 @@ defmodule MinionWeb.AlertLive do
     do: {:noreply, assign(socket, :resolve_step, nil)}
 
   def handle_event("confirm_resolve", _params, socket) do
-    case Alerts.resolve(socket.assigns.alert.id) do
+    case Alerts.resolve(socket.assigns.alert.id, socket.assigns.acting_as.id) do
       {:ok, _alert} = resolved ->
         after_transition(resolved, assign(socket, :resolve_step, :resolved), nil)
 
@@ -123,6 +146,13 @@ defmodule MinionWeb.AlertLive do
 
   defp fields(_alert), do: []
 
+  defp person_name(people, person_id) do
+    case Enum.find(people, &(&1.id == person_id)) do
+      nil -> "someone"
+      person -> person.name
+    end
+  end
+
   defp channel_label(:sms), do: "SMS"
   defp channel_label(:phone), do: "phone call"
   defp channel_label(channel), do: to_string(channel)
@@ -173,19 +203,51 @@ defmodule MinionWeb.AlertLive do
             </p>
           </div>
         </div>
-        <div class="flex gap-2">
+        <div :if={@alert.status != :resolved} class="flex flex-wrap items-center gap-2">
+          <form id="acting-as-form" phx-change="act_as" phx-hook=".ActingAs">
+            <label for="acting-as" class="sr-only">You are</label>
+            <select
+              id="acting-as"
+              name="person_id"
+              class="select select-sm w-44"
+              aria-label="You are"
+            >
+              <option value="" selected={is_nil(@acting_as)}>Who are you?</option>
+              <option
+                :for={person <- @people}
+                value={person.id}
+                selected={@acting_as && @acting_as.id == person.id}
+              >
+                {person.name}
+              </option>
+            </select>
+          </form>
+          <script :type={Phoenix.LiveView.ColocatedHook} name=".ActingAs">
+            const key = "minion:acting-as"
+            export default {
+              mounted() {
+                let stored = null
+                try { stored = localStorage.getItem(key) } catch (_error) {}
+                if (stored) this.pushEvent("act_as", {person_id: stored})
+                this.el.addEventListener("change", (event) => {
+                  try { localStorage.setItem(key, event.target.value) } catch (_error) {}
+                })
+              }
+            }
+          </script>
           <button
             :if={@alert.status == :open}
             id="acknowledge"
             phx-click="acknowledge"
+            disabled={is_nil(@acting_as)}
             class="btn btn-sm btn-outline"
           >
             Acknowledge
           </button>
           <button
-            :if={@alert.status != :resolved}
             id="resolve"
             phx-click="ask_resolve"
+            disabled={is_nil(@acting_as)}
             class="btn btn-sm btn-primary"
           >
             Resolve
@@ -202,6 +264,27 @@ defmodule MinionWeb.AlertLive do
             <span id="alert-status" data-status={@alert.status}>
               {status_label(@alert.status, not is_nil(@alert.closed_at))}
             </span>
+          </.fact>
+          <.fact :if={@alert.acked_at} label="Acknowledged">
+            <span id="alert-acked-by">
+              by {person_name(@people, @alert.acked_by_id)}
+              <span class="text-base-content/50">
+                (<.local_time id="alert-acked-at" at={@alert.acked_at} />)
+              </span>
+            </span>
+          </.fact>
+          <.fact :if={@alert.resolved_at} label="Resolved">
+            <span id="alert-resolved-by">
+              {if @alert.resolved_by_id,
+                do: "by #{person_name(@people, @alert.resolved_by_id)}",
+                else: "automatically, after no events for a while"}
+              <span class="text-base-content/50">
+                (<.local_time id="alert-resolved-at" at={@alert.resolved_at} />)
+              </span>
+            </span>
+          </.fact>
+          <.fact :if={@alert.resolution_note} label="How it was fixed">
+            <p id="alert-resolution-note" class="whitespace-pre-line">{@alert.resolution_note}</p>
           </.fact>
           <.fact label="Severity"><.severity_badge severity={@alert.severity} /></.fact>
           <.fact :if={@alert.body not in [nil, ""]} label="Body">
@@ -466,7 +549,21 @@ defmodule MinionWeb.AlertLive do
             </div>
           </div>
 
-          <div :if={@resolve_step == :resolved} id="resolve-runbook-prompt">
+          <form
+            :if={@resolve_step == :resolved}
+            id="resolve-runbook-prompt"
+            phx-submit="finish_resolve"
+          >
+            <label for="resolution-note" class="mt-4 block text-sm font-medium">
+              How did you fix it? <span class="font-normal text-base-content/50">(optional)</span>
+            </label>
+            <textarea
+              id="resolution-note"
+              name="note"
+              rows="3"
+              placeholder="e.g. Cleared old logs in /var/log and restarted the agent."
+              class="textarea mt-2 w-full"
+            >{@alert.resolution_note}</textarea>
             <p :if={@alert.rule} class="mt-3 text-sm text-base-content/60">
               {if Runbooks.blank?(@runbook),
                 do:
@@ -477,22 +574,25 @@ defmodule MinionWeb.AlertLive do
             <div class="mt-7 flex justify-end gap-3">
               <button
                 id="resolve-done"
-                type="button"
-                phx-click="close_resolve"
+                type="submit"
+                name="next"
+                value="close"
                 class="btn btn-sm btn-outline"
               >
-                {if @alert.rule, do: "Not now", else: "Done"}
+                Done
               </button>
-              <.link
+              <button
                 :if={@alert.rule}
                 id="resolve-update-runbook"
-                navigate={runbook_path(@alert)}
+                type="submit"
+                name="next"
+                value="runbook"
                 class="btn btn-sm btn-primary"
               >
                 {if Runbooks.blank?(@runbook), do: "Write runbook", else: "Update runbook"}
-              </.link>
+              </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </Layouts.app>

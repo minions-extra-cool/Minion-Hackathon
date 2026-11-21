@@ -5,7 +5,11 @@ defmodule Minion.Channels.GatewayChannelsTest do
   alias Minion.Alerts.Alert
   alias Minion.Channels.{Gateway, Phone, Sms}
 
-  @alert %Alert{severity: :critical, title: "Disk full on web-1"}
+  @alert %Alert{
+    id: "0b6c3f4e-2d0a-4a43-9d8e-6f1c2a7b9e11",
+    severity: :critical,
+    title: "Disk full on web-1"
+  }
   @piotr %Person{name: "Piotr", phone: "+48400500600"}
 
   defp capture_request do
@@ -18,7 +22,7 @@ defmodule Minion.Channels.GatewayChannelsTest do
     end)
   end
 
-  test "an SMS posts the severity and title to the gateway" do
+  test "an SMS posts the severity, title and a link to the alert to the gateway" do
     capture_request()
 
     assert Sms.deliver(@alert, @piotr) == :ok
@@ -27,8 +31,10 @@ defmodule Minion.Channels.GatewayChannelsTest do
                      %{
                        "channel" => "sms",
                        "to" => "+48400500600",
-                       "text" => "[CRITICAL] Disk full on web-1"
+                       "text" => text
                      }}
+
+    assert text =~ ~r"^\[CRITICAL\] Disk full on web-1 http://\S+/alerts/#{@alert.id}$"
   end
 
   test "a phone call posts a spoken message to the gateway" do

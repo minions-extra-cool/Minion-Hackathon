@@ -163,12 +163,17 @@ defmodule MinionWeb.DashboardLive do
                 />
               </td>
               <td class="max-w-0">
-                <.link
-                  navigate={~p"/alerts/#{alert.id}"}
-                  class="block truncate font-medium hover:underline"
-                >
-                  {alert.title}
-                </.link>
+                <span class="flex items-center gap-2">
+                  <span class="flex w-1 shrink-0">
+                    <.rule_color_mark id={"#{dom_id}-color"} alert={alert} />
+                  </span>
+                  <.link
+                    navigate={~p"/alerts/#{alert.id}"}
+                    class="min-w-0 truncate font-medium hover:underline"
+                  >
+                    {alert.title}
+                  </.link>
+                </span>
               </td>
               <td class="truncate text-base-content/70">
                 {source(alert)}
