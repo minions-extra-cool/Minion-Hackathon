@@ -7,6 +7,8 @@ defmodule Minion.Application do
 
   @impl true
   def start(_type, _args) do
+    Minion.Metrics.setup()
+
     children = [
       MinionWeb.Telemetry,
       Minion.Repo,

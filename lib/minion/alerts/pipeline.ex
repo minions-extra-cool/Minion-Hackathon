@@ -36,11 +36,24 @@ defmodule Minion.Alerts.Pipeline do
     with {:ok, envelope} <- Jason.decode(message.data),
          {:ok, outcomes} <- process(envelope, 1) do
       if outcomes == [], do: Logger.debug("No rule matched event #{envelope["id"]}")
+      record_latency(envelope)
       message
     else
       {:error, reason} -> Message.failed(message, reason)
     end
   end
+
+  defp record_latency(%{"received_at" => received_at}) when is_binary(received_at) do
+    case DateTime.from_iso8601(received_at) do
+      {:ok, at, _offset} ->
+        Minion.Metrics.record(max(DateTime.diff(DateTime.utc_now(), at, :microsecond), 0))
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp record_latency(_envelope), do: :ok
 
   @impl true
   def handle_failed(messages, _context) do
