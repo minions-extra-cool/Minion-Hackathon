@@ -146,4 +146,128 @@ defmodule MinionWeb.DashboardLiveTest do
 
     assert path == ~p"/alerts/#{alert.id}"
   end
+
+  defp row_order(view) do
+    ~r/id="alerts-([0-9a-f-]{36})"/
+    |> Regex.scan(view |> element("#alerts") |> render())
+    |> Enum.map(fn [_, id] -> id end)
+  end
+
+  describe "sorting" do
+    setup %{rule: rule} do
+      %{
+        busy:
+          alert_fixture(rule, %{
+            title: "Busy",
+            count: 40,
+            last_seen: ~U[2026-11-21 08:00:00.000000Z]
+          }),
+        quiet:
+          alert_fixture(rule, %{
+            title: "quiet",
+            count: 2,
+            last_seen: ~U[2026-11-21 09:00:00.000000Z]
+          }),
+        middle:
+          alert_fixture(rule, %{
+            title: "Middle",
+            count: 9,
+            last_seen: ~U[2026-11-21 10:00:00.000000Z]
+          })
+      }
+    end
+
+    test "is newest first until a header is clicked", %{conn: conn} = ctx do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert row_order(view) == [ctx.middle.id, ctx.quiet.id, ctx.busy.id]
+      assert has_element?(view, "#column-last_seen[aria-sort=descending]")
+    end
+
+    test "clicking a header sorts by it and clicking again flips it, in the URL",
+         %{
+           conn: conn
+         } = ctx do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> element("#sort-title") |> render_click()
+      assert_patch(view, ~p"/?#{[sort: "title", dir: "asc"]}")
+      assert row_order(view) == [ctx.busy.id, ctx.middle.id, ctx.quiet.id]
+      assert has_element?(view, "#column-title[aria-sort=ascending]")
+
+      view |> element("#sort-title") |> render_click()
+      assert_patch(view, ~p"/?#{[sort: "title", dir: "desc"]}")
+      assert row_order(view) == [ctx.quiet.id, ctx.middle.id, ctx.busy.id]
+    end
+
+    test "a shared link opens sorted, and search keeps the sort", %{conn: conn} = ctx do
+      {:ok, view, _html} = live(conn, ~p"/?#{[sort: "count", dir: "desc"]}")
+      assert row_order(view) == [ctx.busy.id, ctx.middle.id, ctx.quiet.id]
+
+      view |> form("#search-form", %{q: "i"}) |> render_change()
+      assert_patch(view, ~p"/?#{[q: "i", sort: "count", dir: "desc"]}")
+    end
+
+    test "a live update moves the row to its sorted place", %{conn: conn, rule: rule} = ctx do
+      {:ok, view, _html} = live(conn, ~p"/?#{[sort: "count", dir: "desc"]}")
+
+      updated = %{ctx.quiet | count: 100, rule: rule}
+
+      Phoenix.PubSub.broadcast(
+        Minion.PubSub,
+        Minion.Alerts.topic(updated),
+        {:alert, :updated, updated}
+      )
+
+      assert row_order(view) == [ctx.quiet.id, ctx.busy.id, ctx.middle.id]
+      assert view |> element("#alerts-#{ctx.quiet.id}-count") |> render() =~ "100"
+    end
+  end
+
+  describe "columns" do
+    test "can be shown, moved, hidden and reset, and each change is saved", %{
+      conn: conn,
+      rule: rule
+    } do
+      alert = alert_fixture(rule)
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      refute has_element?(view, "#column-rule")
+      view |> element("#columns-hidden-rule input") |> render_click()
+      assert has_element?(view, "#column-rule")
+      assert has_element?(view, "#alerts-#{alert.id} td", rule.name)
+
+      assert_push_event(view, "columns_saved", %{
+        columns: ["title", "source", "owner", "count", "last_seen", "rule"]
+      })
+
+      view |> element("#move-rule-up") |> render_click()
+
+      assert_push_event(view, "columns_saved", %{
+        columns: ["title", "source", "owner", "count", "rule", "last_seen"]
+      })
+
+      view |> element("#columns-shown-source input") |> render_click()
+      refute has_element?(view, "#column-source")
+
+      view |> element("#reset-columns") |> render_click()
+      assert has_element?(view, "#column-source")
+      refute has_element?(view, "#column-rule")
+    end
+
+    test "the title cannot be hidden", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      assert has_element?(view, "#columns-shown-title input[disabled]")
+    end
+
+    test "a layout saved in the browser is restored, ignoring junk", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "set_columns", %{"columns" => ["count", "bogus", "first_seen"]})
+
+      assert has_element?(view, "#column-first_seen")
+      refute has_element?(view, "#column-owner")
+      assert has_element?(view, "#column-title")
+    end
+  end
 end
