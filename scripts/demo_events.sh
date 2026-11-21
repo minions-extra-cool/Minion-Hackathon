@@ -2,50 +2,34 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:4000}"
-INGEST_KEY="${MINION_INGEST_KEY:-minion-dev-ops-key}"
-
-sql() {
-  docker compose exec -T postgres psql -q -U postgres -d minion_dev -tA -c "$1"
-}
+GRU_KEY="${MINION_INGEST_KEY:-minion-dev-gru-key}"
+VECTOR_KEY="${MINION_VECTOR_INGEST_KEY:-minion-dev-vector-key}"
 
 post() {
-  curl -fsS -o /dev/null -X POST "$BASE_URL/ingest/$1" -H "Authorization: Bearer $INGEST_KEY" -H 'content-type: application/json' -d "$2"
+  curl -fsS -o /dev/null -X POST "$BASE_URL/ingest/$2" -H "Authorization: Bearer $1" -H 'content-type: application/json' -d "$3"
 }
 
-created="$(sql "
-  insert into rules (id, name, owner_type, owner_id, enabled, severity, conditions, dedup, present, notify, inserted_at, updated_at)
-  select gen_random_uuid(), v.name, 'team', t.id, true, v.severity, v.conditions::jsonb, v.dedup::jsonb, v.present::jsonb,
-         jsonb_build_array(jsonb_build_object('type', 'team', 'id', t.id)), now(), now()
-  from teams t,
-       (values
-         ('High error rate', 'critical',
-          '{\"all\": [{\"field\": \"payload.alertname\", \"op\": \"eq\", \"value\": \"HighErrorRate\"},
-                      {\"field\": \"payload.labels.service\", \"op\": \"matches\", \"value\": \"payments-*\"}]}',
-          '{\"key\": [\"payload.labels.service\", \"payload.labels.region\"], \"quiet_sec\": 300}',
-          '{\"title\": \"High error rate on {{payload.labels.service}} ({{payload.labels.region}})\",
-            \"fields\": [\"payload.labels.service\", \"payload.labels.region\"], \"color\": \"red\"}'),
-         ('Payments down', 'critical',
-          '{\"field\": \"payload.type\", \"op\": \"eq\", \"value\": \"PAYMENTS_DOWN\"}',
-          '{\"key\": [\"payload.region\"], \"quiet_sec\": 300}',
-          '{\"title\": \"Payments down in {{payload.region}}\", \"body\": \"{{payload.reason}}\", \"color\": \"red\"}')
-       ) as v(name, severity, conditions, dedup, present)
-  where t.name = 'ops' and not exists (select 1 from rules where name = v.name)
-  returning name")"
+kafka() {
+  echo "$2" | docker compose exec -T redpanda rpk topic produce "$1" > /dev/null
+}
 
-if [ -n "$created" ]; then
-  echo "Created demo rules: $(echo "$created" | tr '\n' ' ')"
-  echo "Waiting for the rules cache to load them"
-  sleep 6
-fi
+now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-echo "Posting demo events to $BASE_URL"
-post ops-monitor '{"type":"DISK_FULL","host":"web-3","used":97}'
-post ops-monitor '{"type":"DISK_FULL","host":"web-3","used":98}'
-post ops-monitor '{"type":"DISK_FULL","host":"web-3","used":99}'
-post ops-monitor '{"type":"DISK_FULL","host":"db-1","used":95}'
-post prometheus '{"alertname":"HighErrorRate","labels":{"service":"payments-api","region":"eu-west"}}'
-post payments '{"type":"PAYMENTS_DOWN","region":"us-east","reason":"Card processor timeouts"}'
-post ops-monitor '{"type":"CPU_HIGH","host":"web-3"}'
+echo "Posting Gru's Squad events to $BASE_URL"
+post "$GRU_KEY" lab-monitor '{"type":"DISK_FULL","host":"web-3","used":97}'
+post "$GRU_KEY" lab-monitor '{"type":"DISK_FULL","host":"web-3","used":98}'
+post "$GRU_KEY" lab-monitor '{"type":"DISK_FULL","host":"web-3","used":99}'
+post "$GRU_KEY" lab-monitor '{"type":"DISK_FULL","host":"db-1","used":95}'
+post "$GRU_KEY" prometheus '{"alertname":"HighErrorRate","labels":{"service":"payments-api","region":"eu-west"},"annotations":{"summary":"5xx responses above 5% for 5 minutes.","error_rate":"12.4%"}}'
+post "$GRU_KEY" warehouse '{"type":"STOCK_LOW","item":"banana","quantity":42,"warehouse":"lair-basement"}'
+post "$GRU_KEY" lab-monitor '{"type":"CPU_HIGH","host":"web-3","load":7.5}'
+kafka workflow-events "{\"type\":\"WORKFLOW_FAILED\",\"workflowId\":\"WF-248358\",\"workflowName\":\"Order-settlement\",\"step\":\"validate-counterparty\",\"severity\":\"ERROR\",\"environment\":\"prod\",\"timestamp\":\"$now\",\"error\":{\"code\":\"TIMEOUT\",\"message\":\"Counterparty service did not respond in timeout\"}}"
 
-echo "Done: 4 alerts (web-3 with 3 events, db-1, payments-api error rate, payments in us-east); CPU_HIGH matches no rule."
+echo "Posting Vector Industries events"
+post "$VECTOR_KEY" pricing-engine-2 '{"level":"WARN","instance":"pricing-engine-2","instrument":"EURUSD","latency_ms":1840,"message":"quote took 1840 ms"}'
+post "$VECTOR_KEY" prometheus '{"alertname":"TargetDown","labels":{"job":"shrink-ray","instance":"lab-2","region":"pyramid-wing"},"annotations":{"description":"Health check failed 3 times in a row."}}'
+kafka trade-events "{\"meta\":{\"schema\":\"trade.rejected.v2\",\"producer\":\"rates-booking\",\"ts\":\"$now\"},\"trade\":{\"id\":\"T-90417\",\"desk\":\"rates\",\"notional\":2500000,\"currency\":\"EUR\",\"counterparty\":\"Bank of Evil\"},\"reason\":{\"code\":\"LIMIT_BREACH\",\"message\":\"Counterparty credit limit exceeded\"}}"
+
+echo "Done: Gru's Squad gets 5 alerts (web-3 with 3 events, db-1, payments-api error rate, order settlement, Bob's bananas);"
+echo "Vector Industries gets 3 (pricing latency, shrink ray, rejected trade). CPU_HIGH matches no rule and shows under Unmatched."
 echo "Dashboard: $BASE_URL   Gateway: $BASE_URL/gateway   Mailpit: http://localhost:8025"

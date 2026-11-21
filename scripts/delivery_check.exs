@@ -6,11 +6,11 @@ alias Minion.Repo
 alias Minion.Rules.Rule
 
 severity = String.to_existing_atom(List.first(System.argv()) || "critical")
-ops = Repo.one(from t in Team, where: t.name == "ops")
-rule = ops && Repo.one(from r in Rule, where: r.owner_id == ^ops.id and r.name == "Disk full")
+team = Repo.one(from t in Team, where: t.name == "Gru's Squad")
+rule = team && Repo.one(from r in Rule, where: r.owner_id == ^team.id and r.name == "Disk full")
 
 if is_nil(rule) do
-  IO.puts("The seeded team 'ops' and its 'Disk full' rule are missing. Run: mix run priv/repo/seeds.exs")
+  IO.puts("The seeded team Gru's Squad and its 'Disk full' rule are missing. Run: mix run priv/repo/seeds.exs")
   System.halt(1)
 end
 now = DateTime.utc_now()
@@ -22,7 +22,7 @@ title = "Delivery check #{Calendar.strftime(now, "%H:%M:%S")}"
       Repo.insert!(%Alert{
         rule_id: rule.id,
         owner_type: :team,
-        owner_id: ops.id,
+        owner_id: team.id,
         fingerprint: Ecto.UUID.generate(),
         severity: severity,
         first_seen: now,
@@ -38,6 +38,6 @@ title = "Delivery check #{Calendar.strftime(now, "%H:%M:%S")}"
 
 deliveries = Repo.all(from d in Minion.Delivery.Delivery, where: d.alert_id == ^alert.id, preload: :person)
 
-IO.puts("Created #{severity} alert \"#{title}\" for team ops with #{length(deliveries)} deliveries:")
+IO.puts("Created #{severity} alert \"#{title}\" for Gru's Squad with #{length(deliveries)} deliveries:")
 Enum.each(deliveries, &IO.puts("  #{&1.person.name} by #{&1.channel}"))
 IO.puts("Watch them arrive at http://localhost:4000/gateway and http://localhost:8025")
