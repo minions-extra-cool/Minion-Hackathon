@@ -23,6 +23,20 @@ defmodule Minion.Rules.Rule do
 
   def severities, do: @severities
 
+  @fields [
+    :name,
+    :owner_type,
+    :owner_id,
+    :enabled,
+    :severity,
+    :conditions,
+    :dedup,
+    :present,
+    :notify
+  ]
+
+  def cast_changeset(rule, attrs), do: cast(rule, attrs, @fields)
+
   def changeset(rule, attrs) do
     rule
     |> cast(attrs, [

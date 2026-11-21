@@ -83,7 +83,8 @@ defmodule MinionWeb.RuleEditorLive do
         {:noreply,
          assign(socket,
            json_error:
-             "Fix these before switching: " <> Enum.join(error_messages(changeset), "; ")
+             "The visual editor can't show this yet: " <>
+               Enum.join(error_messages(changeset), "; ")
          )}
 
       {:error, message} ->
@@ -174,13 +175,18 @@ defmodule MinionWeb.RuleEditorLive do
     changeset
     |> Ecto.Changeset.traverse_errors(fn {message, opts} ->
       Enum.reduce(opts, message, fn {key, value}, acc ->
-        String.replace(acc, "%{#{key}}", to_string(value))
+        String.replace(acc, "%{#{key}}", fn _placeholder -> error_value(value) end)
       end)
     end)
     |> Enum.flat_map(fn {field, messages} ->
       Enum.map(messages, &"#{field_label(field)} #{&1}")
     end)
   end
+
+  defp error_value(value) when is_binary(value) or is_number(value) or is_atom(value),
+    do: to_string(value)
+
+  defp error_value(value), do: inspect(value)
 
   defp field_label(:owner_type), do: "Owner"
   defp field_label(:owner_id), do: "Owner"

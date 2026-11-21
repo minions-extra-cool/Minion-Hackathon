@@ -34,19 +34,28 @@ defmodule Minion.Rules.Draft do
       "enabled" => rule.enabled != false,
       "severity" => to_string(rule.severity || :warning),
       "conditions" => ConditionTree.normalize(rule.conditions),
-      "dedup_key" => dedup |> Map.get("key", []) |> Enum.join(", "),
+      "dedup_key" => list_text(dedup["key"]),
       "quiet_min" => quiet_minutes(dedup["quiet_sec"]),
-      "title" => present["title"] || "",
-      "body" => present["body"] || "",
-      "fields" => present |> Map.get("fields", []) |> Enum.join(", "),
-      "color" => present["color"] || "",
-      "notify" => Enum.map(rule.notify || [], &"#{&1["type"]}:#{&1["id"]}")
+      "title" => text(present["title"]),
+      "body" => text(present["body"]),
+      "fields" => list_text(present["fields"]),
+      "color" => text(present["color"]),
+      "notify" => for(%{"type" => type, "id" => id} <- rule.notify || [], do: "#{type}:#{id}")
     }
   end
 
+  defp list_text(items) when is_list(items),
+    do: items |> Enum.filter(&is_binary/1) |> Enum.join(", ")
+
+  defp list_text(item) when is_binary(item), do: item
+  defp list_text(_other), do: ""
+
+  defp text(value) when is_binary(value), do: value
+  defp text(_other), do: ""
+
   @spec from_attrs(map()) :: {:ok, map()} | {:error, Ecto.Changeset.t()}
   def from_attrs(attrs) do
-    changeset = Rule.changeset(%Rule{}, attrs)
+    changeset = Rule.cast_changeset(%Rule{}, attrs)
 
     if changeset.valid? do
       {:ok, changeset |> Ecto.Changeset.apply_changes() |> from_rule()}

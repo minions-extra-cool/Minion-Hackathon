@@ -101,6 +101,47 @@ defmodule MinionWeb.RuleEditorLiveTest do
     assert has_element?(view, "#rule-name[value='Payments outage']")
   end
 
+  test "an unfinished new rule can switch to JSON and back", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/rules/new")
+
+    view |> element("#mode-json") |> render_click()
+    view |> element("#mode-visual") |> render_click()
+
+    refute has_element?(view, "#json-error")
+    assert has_element?(view, "#rule-form")
+    assert has_element?(view, "#condition-0")
+  end
+
+  test "JSON with values the editor cannot show keeps you in JSON mode", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/rules/new")
+
+    view |> element("#mode-json") |> render_click()
+
+    json =
+      view |> element("#rule-json") |> render() |> LazyHTML.from_fragment() |> LazyHTML.text()
+
+    edited = json |> Jason.decode!() |> Map.put("severity", "urgent") |> Jason.encode!()
+    view |> form("#json-form", %{"json" => edited}) |> render_change()
+    view |> element("#mode-visual") |> render_click()
+
+    assert has_element?(view, "#json-error", "Severity is invalid")
+    assert has_element?(view, "#rule-json")
+  end
+
+  test "saving JSON with an invalid value explains the problem instead of crashing", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/rules/new")
+
+    view |> element("#mode-json") |> render_click()
+
+    json =
+      view |> element("#rule-json") |> render() |> LazyHTML.from_fragment() |> LazyHTML.text()
+
+    edited = json |> Jason.decode!() |> Map.put("severity", "urgent") |> Jason.encode!()
+    view |> form("#json-form", %{"json" => edited}) |> render_submit()
+
+    assert has_element?(view, "#rule-errors", "Severity is invalid")
+  end
+
   test "invalid JSON keeps you in JSON mode with an explanation", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/rules/new")
 
