@@ -71,7 +71,9 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "info": []}
 ```
 
-**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`.
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`; acknowledging or resolving in the UI (`Minion.Alerts.acknowledge/1`, `resolve/1`, one conditional UPDATE so the first click wins) broadcasts `{:alert, :acked | :resolved, %Alert{}}`.
+
+**UI:** Phoenix LiveView with daisyUI. The `minion` theme in `assets/css/app.css` is the only theme: warm off-white `base-100`, off-black `base-content`, banana-yellow `primary`. Status lights: red open, amber acknowledged, grey resolved (`MinionWeb.AlertComponents`). `/` is the live feed (`MinionWeb.DashboardLive`), `/alerts/:id` the alert detail (`MinionWeb.AlertLive`).
 
 **Dispatch contract:** `Minion.Delivery.dispatch(alert)` runs inside the pipeline's transaction. Return `:ok`, or `{:error, reason}` (or raise) to roll back the alert; the pipeline then retries the event.
 
@@ -96,6 +98,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 | `lib/minion/alerts/` | Pair A | `Alert`, the pipeline consumer, the quiet sweep |
 | `lib/minion/delivery/` | Pair B | `Delivery`, `Minion.Delivery.dispatch/1`, workers |
 | `lib/minion/channels/` | Pair B | `Minion.Channel` and one module per channel |
+| `lib/minion_web/live/`, `lib/minion_web/components/` | shared | LiveView pages, layout, alert components |
 
 The seam between the pairs is `Minion.Delivery.dispatch(alert)`. Pair A calls it for every new alert; Pair B implements it.
 
