@@ -240,13 +240,13 @@ defmodule MinionWeb.AlertLive do
         aria-labelledby="resolve-confirm-title"
         phx-window-keydown="cancel_resolve"
         phx-key="Escape"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-base-content/30 p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-base-content/20 p-4"
       >
         <div
-          class="w-full max-w-sm border border-base-300 bg-base-100 p-6 shadow-xl"
+          class="m-auto w-full max-w-sm bg-base-100 p-8 shadow-xl"
           phx-click-away="cancel_resolve"
         >
-          <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start justify-between gap-6">
             <h2 id="resolve-confirm-title" class="text-lg font-semibold tracking-tight">
               Resolve this alert?
             </h2>
@@ -260,10 +260,10 @@ defmodule MinionWeb.AlertLive do
               <.icon name="hero-x-mark-mini" class="size-5" />
             </button>
           </div>
-          <p class="mt-2 text-sm text-base-content/60">
+          <p class="mt-3 text-sm text-base-content/60">
             {@alert.title} will be marked as resolved. The next matching event opens a new alert.
           </p>
-          <div class="mt-5 flex justify-end gap-2">
+          <div class="mt-7 flex justify-end gap-3">
             <button
               id="resolve-cancel"
               type="button"
