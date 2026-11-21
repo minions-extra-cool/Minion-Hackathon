@@ -65,7 +65,11 @@ defmodule MinionWeb.PersonLiveTest do
     })
     |> render_change()
 
-    assert has_element?(view, "#prefs-info-summary", "Email from 08:00 to 20:00 UTC")
+    assert has_element?(
+             view,
+             "#prefs-info-summary",
+             "Email from 08:00 to 20:00 UTC, otherwise feed only"
+           )
 
     view |> element("#prefs-critical-1-up") |> render_click()
 

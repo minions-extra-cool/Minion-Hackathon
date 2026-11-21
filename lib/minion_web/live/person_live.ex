@@ -126,6 +126,8 @@ defmodule MinionWeb.PersonLive do
   def describe([]), do: "Shown in the feed only. No notifications."
 
   def describe(entries) do
+    always_matches? = Enum.any?(entries, &(&1["hours"] == nil))
+
     entries
     |> Enum.map(fn entry ->
       channels = channels_text(entry["channels"])
@@ -135,6 +137,7 @@ defmodule MinionWeb.PersonLive do
         _ -> channels
       end
     end)
+    |> then(&if(always_matches?, do: &1, else: &1 ++ ["feed only"]))
     |> Enum.join(", otherwise ")
     |> upcase_first()
   end
@@ -148,6 +151,10 @@ defmodule MinionWeb.PersonLive do
   defp channel_label("phone"), do: "phone call"
   defp channel_label(channel), do: channel
 
+  defp checkbox_label(channel), do: channel |> channel_label() |> upcase_first()
+
+  defp severity_label(severity), do: upcase_first(severity)
+
   defp clock(hour), do: String.pad_leading(to_string(hour), 2, "0") <> ":00"
 
   defp severity_hint("critical"), do: "Something is broken right now."
@@ -157,7 +164,7 @@ defmodule MinionWeb.PersonLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_person={@current_person} people={@people}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:teams}>
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 id="person-name" class="text-2xl font-semibold tracking-tight">{@person.name}</h1>
@@ -165,7 +172,12 @@ defmodule MinionWeb.PersonLive do
             <span :if={@current_person && @current_person.id == @person.id} id="this-is-you">
               This is you ·
             </span>
-            <span :if={@person.team} id="person-team">{@person.team.name}</span>
+            <.link
+              :if={@person.team}
+              id="person-team"
+              navigate={~p"/teams/#{@person.team.id}"}
+              class="underline hover:text-base-content"
+            >{@person.team.name}</.link>
             <span :if={!@person.team}>No team</span>
           </p>
         </div>
@@ -206,8 +218,8 @@ defmodule MinionWeb.PersonLive do
             class="border border-base-300 p-5"
           >
             <div class="flex flex-wrap items-baseline justify-between gap-3">
-              <h3 class="font-semibold capitalize">
-                {severity}
+              <h3 class="font-semibold">
+                {severity_label(severity)}
                 <span class="ml-2 text-sm font-normal text-base-content/50">
                   {severity_hint(severity)}
                 </span>
@@ -233,7 +245,7 @@ defmodule MinionWeb.PersonLive do
                     value={channel}
                     checked={channel in entry["channels"]}
                   />
-                  {channel_label(channel)}
+                  {checkbox_label(channel)}
                 </label>
                 <span class="mx-1 h-5 border-l border-base-300" />
                 <input type="hidden" name={"prefs[#{severity}][#{index}][limited]"} value="false" />

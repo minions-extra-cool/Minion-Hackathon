@@ -30,6 +30,8 @@ defmodule MinionWeb.Router do
       live "/rules/:id/runbook", RunbookLive
       live "/gateway", FakeGatewayLive
       live "/people/:id", PersonLive
+      live "/teams", TeamsLive
+      live "/teams/:id", TeamLive
     end
   end
 

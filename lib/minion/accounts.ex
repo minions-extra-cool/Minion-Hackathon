@@ -45,6 +45,29 @@ defmodule Minion.Accounts do
     Team |> Repo.get!(id) |> Repo.preload([:oncall_person, members: members])
   end
 
+  @spec create_team(map()) :: {:ok, Team.t()} | {:error, Ecto.Changeset.t()}
+  def create_team(attrs), do: %Team{} |> Team.changeset(attrs) |> Repo.insert()
+
+  @spec rule_counts() :: %{Ecto.UUID.t() => non_neg_integer()}
+  def rule_counts do
+    Repo.all(
+      from r in Minion.Rules.Rule,
+        where: r.owner_type == :team,
+        group_by: r.owner_id,
+        select: {r.owner_id, count(r.id)}
+    )
+    |> Map.new()
+  end
+
+  @spec list_team_rules(Ecto.UUID.t()) :: [Minion.Rules.Rule.t()]
+  def list_team_rules(team_id) do
+    Repo.all(
+      from r in Minion.Rules.Rule,
+        where: r.owner_type == :team and r.owner_id == ^team_id,
+        order_by: r.name
+    )
+  end
+
   @spec change_team(Team.t(), map()) :: Ecto.Changeset.t()
   def change_team(%Team{} = team, attrs \\ %{}), do: Team.changeset(team, attrs)
 

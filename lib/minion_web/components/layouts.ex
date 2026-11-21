@@ -69,6 +69,18 @@ defmodule MinionWeb.Layouts do
               Rules
             </.link>
           </li>
+          <li>
+            <.link
+              id="nav-teams"
+              navigate={~p"/teams"}
+              class={[
+                "px-3 py-1.5 transition-colors hover:bg-base-200",
+                @active == :teams && "bg-primary/60 font-medium hover:bg-primary/70"
+              ]}
+            >
+              Teams
+            </.link>
+          </li>
         </ul>
         <.person_menu current_person={@current_person} people={@people} />
       </nav>
