@@ -511,8 +511,10 @@ defmodule MinionWeb.RuleEditorLive do
             </div>
             <p class="mt-2 text-xs text-base-content/50">Nobody ticked means the feed only.</p>
 
-            <div id="rule-send-by" class="mt-5 space-y-2">
-              <p class="text-sm">Send by</p>
+            <div id="rule-send-by" class="mt-8 space-y-2">
+              <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                Via
+              </h2>
               <label class="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   id="send-by-preferences"
@@ -555,7 +557,7 @@ defmodule MinionWeb.RuleEditorLive do
           </section>
 
           <div class="flex items-center justify-between gap-4 border-t border-base-300 pt-6">
-            <label class="flex cursor-pointer items-center gap-2 text-sm">
+            <label class="flex cursor-pointer items-start gap-3 text-sm">
               <input type="hidden" name="enabled" value="false" />
               <input
                 id="rule-enabled"
@@ -563,8 +565,14 @@ defmodule MinionWeb.RuleEditorLive do
                 name="enabled"
                 value="true"
                 checked={@draft["enabled"]}
-                class="toggle toggle-sm"
-              /> Enabled
+                class="toggle toggle-sm mt-0.5"
+              />
+              <span>
+                <span class="font-medium">This rule is {if @draft["enabled"], do: "on", else: "off"}</span>
+                <span class="block text-xs text-base-content/50">
+                  When off, it ignores new events and raises no alerts, but keeps its settings.
+                </span>
+              </span>
             </label>
             <button id="save-rule" type="submit" class="btn btn-primary">Save rule</button>
           </div>
