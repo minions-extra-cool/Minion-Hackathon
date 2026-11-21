@@ -26,6 +26,11 @@ config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Test
 
 config :minion, Oban, testing: :manual
 
+config :minion, :kafka,
+  brokers: [{"localhost", 19092}],
+  events_topic: "events_test",
+  events_partitions: 2
+
 # Disable swoosh api client as it is only required for production adapters
 config :swoosh, :api_client, false
 
