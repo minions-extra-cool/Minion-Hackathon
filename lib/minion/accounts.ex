@@ -68,6 +68,32 @@ defmodule Minion.Accounts do
     )
   end
 
+  @spec generate_ingest_key(Team.t()) :: {:ok, Team.t(), String.t()}
+  def generate_ingest_key(%Team{} = team) do
+    key = "mk_" <> Base.url_encode64(:crypto.strong_rand_bytes(24), padding: false)
+    {:ok, team} = put_ingest_key(team, key)
+    {:ok, team, key}
+  end
+
+  @spec put_ingest_key(Team.t(), String.t()) :: {:ok, Team.t()}
+  def put_ingest_key(%Team{} = team, key) when is_binary(key) and byte_size(key) >= 16 do
+    team
+    |> Ecto.Changeset.change(
+      ingest_key_hash: hash_ingest_key(key),
+      ingest_key_hint: String.slice(key, -4, 4),
+      ingest_key_created_at: DateTime.utc_now()
+    )
+    |> Repo.update()
+  end
+
+  @spec team_for_ingest_key(String.t() | nil) :: Team.t() | nil
+  def team_for_ingest_key(key) when is_binary(key) and key != "",
+    do: Repo.get_by(Team, ingest_key_hash: hash_ingest_key(key))
+
+  def team_for_ingest_key(_key), do: nil
+
+  defp hash_ingest_key(key), do: :crypto.hash(:sha256, key)
+
   @spec change_team(Team.t(), map()) :: Ecto.Changeset.t()
   def change_team(%Team{} = team, attrs \\ %{}), do: Team.changeset(team, attrs)
 

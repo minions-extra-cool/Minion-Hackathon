@@ -1,6 +1,8 @@
 defmodule MinionWeb.TeamLive do
   use MinionWeb, :live_view
 
+  import MinionWeb.AlertComponents, only: [local_time: 1]
+
   alias Minion.Accounts
   alias Minion.Accounts.Person
   alias MinionWeb.{PersonLive, TeamsLive}
@@ -11,7 +13,7 @@ defmodule MinionWeb.TeamLive do
 
     {:ok,
      socket
-     |> assign(page_title: team.name, rules: Accounts.list_team_rules(team.id))
+     |> assign(page_title: team.name, rules: Accounts.list_team_rules(team.id), new_key: nil)
      |> assign(new_person: to_form(Accounts.change_person(%Person{}), as: :person))
      |> load(team)}
   end
@@ -50,6 +52,11 @@ defmodule MinionWeb.TeamLive do
       {:error, changeset} ->
         {:noreply, assign(socket, form: to_form(changeset, as: :team))}
     end
+  end
+
+  def handle_event("generate_key", _params, socket) do
+    {:ok, team, key} = Accounts.generate_ingest_key(socket.assigns.team)
+    {:noreply, socket |> load(Accounts.get_team!(team.id)) |> assign(:new_key, key)}
   end
 
   def handle_event("add_person", %{"person" => params}, socket) do
@@ -185,6 +192,50 @@ defmodule MinionWeb.TeamLive do
               <button id="team-save" type="submit" class="btn btn-primary">Save</button>
             </div>
           </.form>
+
+          <section id="ingest-key" class="space-y-3 pt-4">
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
+              Webhook key
+            </h2>
+            <p class="text-sm text-base-content/70">
+              Systems that post events to
+              <code class="font-mono text-xs">/ingest/&lt;source&gt;</code>
+              for this team must send this key in the
+              <code class="font-mono text-xs">Authorization: Bearer &lt;key&gt;</code>
+              header. Without a valid key the post is refused with 401.
+            </p>
+            <p :if={@team.ingest_key_hint && !@new_key} id="ingest-key-status" class="text-sm">
+              Key ending <span class="font-mono">…{@team.ingest_key_hint}</span>, created
+              <.local_time id="ingest-key-created" at={@team.ingest_key_created_at} />.
+            </p>
+            <p :if={!@team.ingest_key_hint} id="ingest-key-missing" class="text-sm font-medium">
+              No key yet: posts for this team are refused until you generate one.
+            </p>
+            <div
+              :if={@new_key}
+              id="new-ingest-key"
+              class="space-y-2 border-l-4 border-primary bg-base-200 p-4 text-sm"
+            >
+              <p class="font-medium">Copy this key now. It is not shown again.</p>
+              <code id="new-ingest-key-value" class="block break-all font-mono text-xs">{@new_key}</code>
+              <p class="text-xs text-base-content/60">Try it:</p>
+              <pre class="overflow-x-auto font-mono text-xs">curl -X POST {url(~p"/ingest/my-service")} \
+      -H "Authorization: Bearer {@new_key}" \
+      -H "content-type: application/json" -d '&lbrace;"type":"TEST"&rbrace;'</pre>
+            </div>
+            <button
+              id="generate-ingest-key"
+              type="button"
+              phx-click="generate_key"
+              data-confirm={
+                @team.ingest_key_hint &&
+                  "Systems using the current key will be refused until they switch to the new one. Continue?"
+              }
+              class="btn btn-sm btn-outline"
+            >
+              {if @team.ingest_key_hint, do: "Generate a new key", else: "Generate key"}
+            </button>
+          </section>
 
           <h2 class="pt-4 text-sm font-semibold uppercase tracking-wider text-base-content/60">
             Rules this team owns

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:4000}"
+INGEST_KEY="${MINION_INGEST_KEY:-minion-dev-ops-key}"
 RUN="$(date +%s)-$RANDOM"
 
 sql() {
@@ -9,7 +10,7 @@ sql() {
 }
 
 post() {
-  curl -fsS -X POST "$BASE_URL/ingest/test" -H 'content-type: application/json' \
+  curl -fsS -X POST "$BASE_URL/ingest/test" -H "Authorization: Bearer $INGEST_KEY" -H 'content-type: application/json' \
     -d "{\"type\":\"$1\",\"host\":\"$RUN\"}" > /dev/null
 }
 

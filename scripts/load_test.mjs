@@ -10,6 +10,7 @@ const args = Object.fromEntries(
 );
 
 const BASE_URL = args.url || process.env.BASE_URL || "http://localhost:4000";
+const INGEST_KEY = args.key || process.env.MINION_INGEST_KEY || "minion-dev-ops-key";
 const STAGES = (args.stages || "500,1000,2000,4000,8000").split(",").map(Number);
 const STAGE_SECONDS = Number(args.seconds || 20);
 const BATCH = Number(args.batch || 1);
@@ -67,7 +68,7 @@ async function runStage(rate) {
     try {
       const res = await fetch(`${BASE_URL}/ingest/load-test`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", authorization: `Bearer ${INGEST_KEY}` },
         body,
       });
       await res.arrayBuffer();

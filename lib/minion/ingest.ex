@@ -3,8 +3,8 @@ defmodule Minion.Ingest do
 
   @type envelope :: %{String.t() => term()}
 
-  @spec envelope(String.t(), String.t(), term()) :: envelope()
-  def envelope(source, source_type, payload) do
+  @spec envelope(String.t(), String.t(), term(), keyword()) :: envelope()
+  def envelope(source, source_type, payload, opts \\ []) do
     %{
       "id" => Ecto.UUID.generate(),
       "source" => source,
@@ -12,6 +12,7 @@ defmodule Minion.Ingest do
       "received_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
       "payload" => payload
     }
+    |> then(&if(team = opts[:team], do: Map.put(&1, "team", team), else: &1))
   end
 
   @spec decode(binary()) :: term()

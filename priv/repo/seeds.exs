@@ -61,3 +61,14 @@ else
     "Seeded team ops (#{ops.id}) with #{anna.name} and #{piotr.name}, and the Disk full rule"
   )
 end
+
+dev_ingest_key = System.get_env("MINION_INGEST_KEY", "minion-dev-ops-key")
+
+case Repo.get_by(Team, name: "ops") do
+  %Team{ingest_key_hash: nil} = ops ->
+    {:ok, _} = Minion.Accounts.put_ingest_key(ops, dev_ingest_key)
+    IO.puts("Team ops posts to /ingest with the key #{dev_ingest_key} (MINION_INGEST_KEY)")
+
+  _ ->
+    :ok
+end
