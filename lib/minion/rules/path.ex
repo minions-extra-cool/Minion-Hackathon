@@ -19,6 +19,20 @@ defmodule Minion.Rules.Path do
     end
   end
 
+  @spec list(term()) :: [String.t()]
+  def list(data), do: data |> list("") |> Enum.sort()
+
+  defp list(map, prefix) when is_map(map) and map_size(map) > 0 do
+    Enum.flat_map(map, fn {key, value} -> list(value, join(prefix, to_string(key))) end)
+  end
+
+  defp list([first | _rest], prefix), do: list(first, join(prefix, "0"))
+  defp list(_leaf, ""), do: []
+  defp list(_leaf, prefix), do: [prefix]
+
+  defp join("", segment), do: segment
+  defp join(prefix, segment), do: prefix <> "." <> segment
+
   defp step(map, segment) when is_map(map), do: Map.fetch(map, segment)
 
   defp step(list, segment) when is_list(list) do
