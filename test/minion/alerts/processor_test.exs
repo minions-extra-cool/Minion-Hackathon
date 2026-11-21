@@ -148,6 +148,15 @@ defmodule Minion.Alerts.ProcessorTest do
     refute_received {:dispatched, _}
   end
 
+  test "an event matching no rule is recorded as an unmatched shape" do
+    rule = insert_rule()
+
+    Processor.process(event(%{"type" => "CPU_HIGH"}), [rule], dispatch: recording_dispatch())
+
+    assert [%Minion.Unmatched.Shape{source: "test", count: 1}] =
+             Repo.all(Minion.Unmatched.Shape)
+  end
+
   test "subscribers are told about created and updated alerts" do
     rule = insert_rule()
     payload = %{"type" => "DISK_FULL", "host" => "web-1"}
