@@ -21,6 +21,7 @@ defmodule Minion.Delivery.WorkerTest do
     end
 
     test "records the error and marks the delivery failed" do
+      Req.Test.stub(Minion.Channels.Gateway, &Plug.Conn.send_resp(&1, 503, "down"))
       %{delivery: delivery} = fixture(:sms)
 
       Worker.perform(%Oban.Job{args: %{"delivery_id" => delivery.id}})
@@ -28,7 +29,7 @@ defmodule Minion.Delivery.WorkerTest do
       delivery = Repo.get(Delivery, delivery.id)
       assert delivery.status == :failed
       assert delivery.attempts == 1
-      assert delivery.last_error == ":not_implemented"
+      assert delivery.last_error == "{:gateway_status, 503}"
     end
 
     test "fails an email delivery to a person without an email address" do
@@ -87,7 +88,14 @@ defmodule Minion.Delivery.WorkerTest do
 
   defp fixture(channel) do
     team = Repo.insert!(%Team{name: "ops-#{Ecto.UUID.generate()}"})
-    person = Repo.insert!(%Person{team_id: team.id, name: "Anna", email: "anna@minion.test"})
+
+    person =
+      Repo.insert!(%Person{
+        team_id: team.id,
+        name: "Anna",
+        email: "anna@minion.test",
+        phone: "+48100200300"
+      })
 
     rule =
       Repo.insert!(%Rule{
