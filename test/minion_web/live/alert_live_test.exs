@@ -120,6 +120,27 @@ defmodule MinionWeb.AlertLiveTest do
       assert has_element?(view, "#runbook-edit", "Edit runbook")
     end
 
+    test "expanding the runbook opens it in a dialog that can be closed", %{
+      conn: conn,
+      rule: rule,
+      alert: alert
+    } do
+      {:ok, _} =
+        Minion.Runbooks.save_runbook(%Minion.Runbooks.Runbook{rule_id: rule.id}, %{
+          body: "- check {{payload.host}}"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+      refute has_element?(view, "#runbook-dialog")
+
+      view |> element("#runbook-expand") |> render_click()
+      assert has_element?(view, "#runbook-dialog-body li", "check web-1")
+      assert has_element?(view, "#runbook-dialog-edit", "Edit runbook")
+
+      view |> element("#runbook-dialog-close") |> render_click()
+      refute has_element?(view, "#runbook-dialog")
+    end
+
     test "an alert without a runbook invites writing one", %{conn: conn, rule: rule, alert: alert} do
       {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
 
