@@ -1,5 +1,9 @@
 # Minion
 
+Creators: Kamil Podolak (captain), Antoni Chmiela, Agnieszka Sarkowicz, Eryk Wójtowicz
+
+Repo: https://github.com/minions-extra-cool/Minion-Hackathon
+
 Minion gets the right alert to the right people on the channel they prefer, and helps them fix it. It takes events from any system in any shape, matches them against rules that teams write in the browser, folds repeats into one alert with a counter, and notifies people by email, SMS, phone or Discord. Each alert carries the team's runbook, filled in with values from the event. When someone resolves an alert, the note on how they fixed it can be folded back into the runbook.
 
 ## Quick start
@@ -182,8 +186,10 @@ SMS and phone calls go to a fake gateway built into the app (`/gateway`). Emails
 
 ## How we used AI
 
-TODO: written by the team.
-
-## Development
-
-`mix precommit` compiles with warnings as errors, formats the code and runs the tests. The end-to-end checks in `scripts/` (`disk_full_check.sh`, `quiet_sweep_check.sh`, `kafka_source_check.sh`, `delivery_check.exs`) run against a running dev server. `CLAUDE.md` describes the contracts between the parts of the system in detail.
+- Right off the bat, we can state that we used Claude Opus 5.5 on Medium effort to generate the entirety of the code in this codebase.
+- That does not mean we do not have ownership over the product.
+  * We drove all of the planning sessions and used Opus 5.5 (and Fable 5.2 on High effort) as assistants and "rubber ducks". We approached their output critically and always understood it to be rough first draft around
+- We adopted an iterative workflow, in which we began by scanning the task statement collaboratively and making human intelligence-only whiteboard notes.
+  * After completing this, we discussed our notes with Fable and juxtaposed them against the task statement to ask for feedback.
+  * Some of it was on point; in other cases it misunderstood our intention or the task statement itself (or at least it understood it differently than the four of us did.)
+- LLMs were also useful for spiking and then implementing performance improvements (like the batching + clustering PR), as well as prioritizing work we would define.
