@@ -132,8 +132,8 @@ defmodule Minion.Alerts.ProcessorTest do
         dispatch: recording_dispatch()
       )
 
-    assert [{:created, %{title: "Disk full on web-1"}}, {:created, %{title: "Anything on web-1"}}] =
-             outcomes
+    assert outcomes |> Enum.map(fn {event, alert} -> {event, alert.title} end) |> Enum.sort() ==
+             [{:created, "Anything on web-1"}, {:created, "Disk full on web-1"}]
   end
 
   test "an event matching no rule changes nothing" do
@@ -161,6 +161,91 @@ defmodule Minion.Alerts.ProcessorTest do
 
     Processor.process(event(payload), [rule], dispatch: recording_dispatch())
     assert_received {:alert, :updated, %Alert{count: 2}}
+  end
+
+  describe "process_batch/2" do
+    defp batch(rule, payloads),
+      do: Enum.flat_map(payloads, &Processor.candidates(event(&1), [rule]))
+
+    test "folds a batch of repeats into one row per alert and notifies once per new alert" do
+      rule = insert_rule()
+
+      payloads =
+        List.duplicate(%{"type" => "DISK_FULL", "host" => "web-1"}, 5) ++
+          [
+            %{"type" => "DISK_FULL", "host" => "web-2"},
+            %{"type" => "CPU_HIGH", "host" => "web-3"}
+          ]
+
+      {:ok, outcomes} =
+        Processor.process_batch(batch(rule, payloads), dispatch: recording_dispatch())
+
+      assert outcomes
+             |> Enum.map(fn {event, alert} -> {event, alert.title, alert.count} end)
+             |> Enum.sort() ==
+               [{:created, "Disk full on web-1", 5}, {:created, "Disk full on web-2", 1}]
+
+      assert_received {:dispatched, _}
+      assert_received {:dispatched, _}
+      refute_received {:dispatched, _}
+    end
+
+    test "adds a batch's events to an open alert without notifying again" do
+      rule = insert_rule()
+      payload = %{"type" => "DISK_FULL", "host" => "web-1"}
+
+      {:ok, [{:created, existing}]} =
+        Processor.process(event(payload), [rule], dispatch: recording_dispatch())
+
+      assert_received {:dispatched, _}
+
+      {:ok, [{:updated, updated}]} =
+        Processor.process_batch(batch(rule, List.duplicate(payload, 4)),
+          dispatch: recording_dispatch()
+        )
+
+      refute_received {:dispatched, _}
+      assert updated.id == existing.id
+      assert updated.count == 5
+      assert DateTime.compare(updated.last_seen, existing.last_seen) == :gt
+    end
+
+    test "creates and updates in the same batch" do
+      rule = insert_rule()
+
+      {:ok, _} =
+        Processor.process(event(%{"type" => "DISK_FULL", "host" => "old"}), [rule],
+          dispatch: recording_dispatch()
+        )
+
+      {:ok, outcomes} =
+        Processor.process_batch(
+          batch(rule, [
+            %{"type" => "DISK_FULL", "host" => "old"},
+            %{"type" => "DISK_FULL", "host" => "new"}
+          ]),
+          dispatch: recording_dispatch()
+        )
+
+      assert outcomes |> Enum.map(fn {event, alert} -> {event, alert.title} end) |> Enum.sort() ==
+               [{:created, "Disk full on new"}, {:updated, "Disk full on old"}]
+    end
+
+    test "if dispatch fails for one new alert, the whole batch is rolled back" do
+      rule = insert_rule()
+
+      payloads = [
+        %{"type" => "DISK_FULL", "host" => "a"},
+        %{"type" => "DISK_FULL", "host" => "b"}
+      ]
+
+      fail_for_b = fn alert -> if alert.title =~ "on b", do: {:error, :boom}, else: :ok end
+
+      assert {:error, {:dispatch_failed, :boom}} =
+               Processor.process_batch(batch(rule, payloads), dispatch: fail_for_b)
+
+      assert alerts() == []
+    end
   end
 
   describe "the transaction rule" do

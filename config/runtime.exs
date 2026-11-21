@@ -89,6 +89,14 @@ if processors = System.get_env("PIPELINE_PROCESSORS") do
   config :minion, :pipeline, processors: String.to_integer(processors)
 end
 
+if batchers = System.get_env("PIPELINE_BATCHERS") do
+  config :minion, :pipeline, batchers: String.to_integer(batchers)
+end
+
+if batch_size = System.get_env("PIPELINE_BATCH_SIZE") do
+  config :minion, :pipeline, batch_size: String.to_integer(batch_size)
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :minion, MinionWeb.Endpoint,
