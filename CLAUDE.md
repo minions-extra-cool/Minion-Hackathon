@@ -63,7 +63,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 
-**Preferences** (`people.preferences`, jsonb). For each severity, the first entry whose `hours` contain the current hour wins; an entry without `hours` always applies. The UI feed always shows the alert, so an empty list means "UI only".
+**Preferences** (`people.preferences`, jsonb). For each severity, the first entry whose `hours` contain the current hour wins; an entry without `hours` always applies. The UI feed always shows the alert, so an empty list means "UI only". `hours: [from, to]` are whole UTC hours, `from` included and `to` excluded (`[8, 20]` is 08:00–19:59 UTC); a window with `from > to`, like `[22, 6]`, wraps past midnight.
 
 ```json
 {"critical": [{"channels": ["sms"], "hours": [8, 20]}, {"channels": ["email"]}],
@@ -80,6 +80,10 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 **Pipeline failures:** Kafka acknowledges every message, so the pipeline retries inside the handler: database outages are retried until the database is back; other errors are retried 5 times and the event is then moved to the `events_dead` topic. The pipeline and rules cache do not run in tests (`config :minion, :pipeline, enabled: false`); test `Minion.Alerts.Processor` directly.
 
 **Channel adapter:** a module implementing `Minion.Channel` with `deliver(alert, person) :: :ok | {:error, term}`.
+
+**Delivery retries:** `Minion.Delivery.Worker` makes up to 4 attempts, 5s, 15s and 60s apart, keeping the delivery `pending` with `attempts` and `last_error` updated. After the last attempt, or at once for `:no_email_address` / `:no_phone_number`, the delivery is `failed`; a failed SMS or phone delivery falls back to one email delivery for that person. Every change is broadcast on the alert's topic as `{:delivery, %Delivery{}}`. A delivery job orphaned by a node that died mid-send is put back in the queue after 2 minutes (Oban Lifeline `rescue_after`), so it may rarely be sent twice but is never left pending.
+
+**Fake SMS/phone gateway:** `Minion.FakeGateway`, shown at `/gateway`. The SMS and phone channels post to `POST /fake-gateway/messages` (the app's own `/fake-gateway/messages` on whatever `PORT` it runs on; `SMS_GATEWAY_URL` points it elsewhere); `PUT /fake-gateway/status {"down": true}` makes it answer 503. A real provider replaces `Minion.Channels.Gateway`.
 
 ## Code layout
 

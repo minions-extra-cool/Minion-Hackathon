@@ -18,6 +18,7 @@ defmodule MinionWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    live "/gateway", FakeGatewayLive
   end
 
   scope "/ingest", MinionWeb do
@@ -39,5 +40,12 @@ defmodule MinionWeb.Router do
       live_dashboard "/dashboard", metrics: MinionWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+  end
+
+  scope "/fake-gateway", MinionWeb do
+    pipe_through :api
+
+    post "/messages", FakeGatewayController, :create
+    put "/status", FakeGatewayController, :update_status
   end
 end

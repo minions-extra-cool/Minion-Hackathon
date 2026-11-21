@@ -39,6 +39,7 @@ config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Local
 config :minion, Oban,
   repo: Minion.Repo,
   queues: [email: 10, sms: 10, phone: 10, maintenance: 1],
+  lifeline: [rescue_after: {2, :minutes}],
   plugins: [
     {Oban.Plugins.Cron,
      crontab: [

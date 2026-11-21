@@ -20,8 +20,14 @@ if System.get_env("PHX_SERVER") do
   config :minion, MinionWeb.Endpoint, server: true
 end
 
-config :minion, MinionWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+port = String.to_integer(System.get_env("PORT", "4000"))
+
+config :minion, MinionWeb.Endpoint, http: [port: port]
+
+if config_env() != :test do
+  config :minion, Minion.Channels.Gateway,
+    url: System.get_env("SMS_GATEWAY_URL", "http://localhost:#{port}/fake-gateway/messages")
+end
 
 if events_partitions = System.get_env("EVENTS_PARTITIONS") do
   config :minion, :kafka, events_partitions: String.to_integer(events_partitions)
@@ -34,12 +40,12 @@ if config_env() == :dev do
       web_console_logger: true,
       patterns: [
         # Static assets, except user uploads
-        ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$"E,
+        ~r"priv/static/(?!uploads/).*\.(js|css|png|jpeg|jpg|gif|svg)$",
         # Gettext translations
-        ~r"priv/gettext/.*\.po$"E,
+        ~r"priv/gettext/.*\.po$",
         # Router, Controllers, LiveViews and LiveComponents
-        ~r"lib/minion_web/router\.ex$"E,
-        ~r"lib/minion_web/(controllers|live|components)/.*\.(ex|heex)$"E
+        ~r"lib/minion_web/router\.ex$",
+        ~r"lib/minion_web/(controllers|live|components)/.*\.(ex|heex)$"
       ]
     ]
 end
