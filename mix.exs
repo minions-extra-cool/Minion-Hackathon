@@ -69,6 +69,8 @@ defmodule Minion.MixProject do
       {:gen_smtp, "~> 1.2"},
       {:oban, "~> 2.19"},
       {:broadway_kafka, "~> 0.4"},
+      {:snappyer, "~> 1.2"},
+      {:lz4b, "~> 0.0.13"},
       {:req, "~> 0.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},

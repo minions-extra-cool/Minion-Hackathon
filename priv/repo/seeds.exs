@@ -7,7 +7,8 @@ alias Minion.Rules.Rule
 if Repo.exists?(from t in Team, where: t.name == "ops") do
   IO.puts("Seed data already present, skipping")
 else
-  ops = Repo.insert!(%Team{name: "ops"})
+  ops =
+    Repo.insert!(%Team{name: "ops", auto_resolve_after: %{"info" => 3600, "warning" => 14_400}})
 
   anna =
     Repo.insert!(%Person{

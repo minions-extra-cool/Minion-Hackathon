@@ -21,10 +21,9 @@ defmodule MinionWeb.Router do
     live "/gateway", FakeGatewayLive
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", MinionWeb do
-  #   pipe_through :api
-  # end
+  scope "/ingest", MinionWeb do
+    post "/:source", IngestController, :create
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:minion, :dev_routes) do

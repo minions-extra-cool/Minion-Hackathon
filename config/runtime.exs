@@ -23,6 +23,10 @@ end
 config :minion, MinionWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+if events_partitions = System.get_env("EVENTS_PARTITIONS") do
+  config :minion, :kafka, events_partitions: String.to_integer(events_partitions)
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :minion, MinionWeb.Endpoint,

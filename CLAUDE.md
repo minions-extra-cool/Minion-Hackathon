@@ -51,10 +51,15 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 - `conditions` nodes (named this way because `when` is a reserved word in Elixir and SQL): `{"all": [...]}`, `{"any": [...]}`, or `{"field", "op", "value"}`. Fields are dot paths into the envelope.
 - Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `matches` (`*` wildcard), `exists`.
-- Fingerprint: hash of the rule id plus the values at `dedup.key`. At most one unresolved alert per fingerprint (enforced by a unique index).
-- `quiet_sec`: an unresolved alert with no events for this long is auto-resolved.
+- Matching semantics (`Minion.Rules.Matcher`): text comparisons ignore case; numbers compare by value even when either side is a string (`"500"` equals `500`); a missing field makes the condition false, including `neq`; an unknown operator or malformed node is false, never an error. Paths can index lists (`payload.errors.0.code`).
+- Templates (`Minion.Rules.Template`): `{{payload.host}}` is replaced by the value at that path; missing values render as empty text, objects as JSON.
+- Fingerprint: hash of the rule id plus the values at `dedup.key`.
+- Fingerprint uniqueness: at most one *active* alert per fingerprint, i.e. not resolved and not closed (`alerts_active_fingerprint_index`).
+- `quiet_sec`: an active alert with no events for this long is **closed**: `closed_at` is set, its status is unchanged, and it stops absorbing events. The next event with that fingerprint opens a new alert and notifies again. A rule without a numeric `quiet_sec` never closes its alerts.
+- Auto-resolve is a **team** setting, `teams.auto_resolve_after`, e.g. `{"info": 3600, "warning": 14400}`: an unresolved alert of that severity with no events for that many seconds is resolved. Critical alerts never auto-resolve; a person must resolve them. Alerts owned by a person use that person's team setting.
+- `Minion.Alerts.QuietSweepWorker` runs both checks every 30 seconds.
 
-**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `title`, `body`, `sample_event`.
+**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `closed_at`, `title`, `body`, `sample_event`.
 
 **Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 
@@ -66,7 +71,13 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "info": []}
 ```
 
-**PubSub topic:** `alerts:<owner_type>:<owner_id>`.
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`.
+
+**Dispatch contract:** `Minion.Delivery.dispatch(alert)` runs inside the pipeline's transaction. Return `:ok`, or `{:error, reason}` (or raise) to roll back the alert; the pipeline then retries the event.
+
+**Kafka sources:** external topics are listed in `config :minion, :kafka_sources` as `%{topic: ..., source: ...}`; adding one is a config line. `Minion.Ingest.KafkaSource` wraps each message (JSON, or the raw string) in an envelope with `source_type: "kafka"` and publishes batches to `events`, retrying until the publish succeeds. A new subscription starts at the topic's latest offset, so history is not replayed. Snappy, lz4 and gzip compressed batches are supported; zstd is not.
+
+**Pipeline failures:** Kafka acknowledges every message, so the pipeline retries inside the handler: database outages are retried until the database is back; other errors are retried 5 times and the event is then moved to the `events_dead` topic. The pipeline and rules cache do not run in tests (`config :minion, :pipeline, enabled: false`); test `Minion.Alerts.Processor` directly.
 
 **Channel adapter:** a module implementing `Minion.Channel` with `deliver(alert, person) :: :ok | {:error, term}`.
 
@@ -80,8 +91,9 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 |---|---|---|
 | `lib/minion/accounts/` | shared | `Team`, `Person` |
 | `lib/minion/ingest/` | Pair A | source adapters, `Minion.Ingest.publish/1` |
+| `lib/minion/kafka.ex`, `lib/minion/kafka/` | Pair A | Kafka client, topic setup |
 | `lib/minion/rules/` | Pair A | `Rule`, the matcher, the rules cache |
-| `lib/minion/alerts/` | Pair A | `Alert`, the pipeline consumer, auto-resolve |
+| `lib/minion/alerts/` | Pair A | `Alert`, the pipeline consumer, the quiet sweep |
 | `lib/minion/delivery/` | Pair B | `Delivery`, `Minion.Delivery.dispatch/1`, workers |
 | `lib/minion/channels/` | Pair B | `Minion.Channel` and one module per channel |
 

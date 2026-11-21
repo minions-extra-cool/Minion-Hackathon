@@ -4,6 +4,8 @@ defmodule Minion.Rules.Rule do
   @owner_types [:team, :person]
   @severities [:info, :warning, :critical]
 
+  @type t :: %__MODULE__{}
+
   schema "rules" do
     field :name, :string
     field :owner_type, Ecto.Enum, values: @owner_types
