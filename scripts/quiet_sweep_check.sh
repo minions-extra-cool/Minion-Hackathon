@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:4000}"
-INGEST_KEY="${MINION_INGEST_KEY:-minion-dev-ops-key}"
+INGEST_KEY="${MINION_INGEST_KEY:-minion-dev-gru-key}"
 RUN="$(date +%s)-$RANDOM"
 
 sql() {
