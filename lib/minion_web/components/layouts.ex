@@ -31,39 +31,46 @@ defmodule MinionWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
+  attr :active, :atom, default: nil, values: [nil, :dashboard, :rules]
+
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex px-1 space-x-4 items-center">
+    <header class="border-b border-base-300">
+      <nav id="main-nav" class="flex items-center gap-8 px-6 py-3 lg:px-10">
+        <.link navigate={~p"/"} class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="inline-block size-3 rounded-full bg-primary ring-2 ring-base-content/80" />
+          Minion
+        </.link>
+        <ul class="flex items-center gap-1 text-sm">
           <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
+            <.link
+              id="nav-dashboard"
+              navigate={~p"/"}
+              class={[
+                "px-3 py-1.5 transition-colors hover:bg-base-200",
+                @active == :dashboard && "bg-primary/60 font-medium hover:bg-primary/70"
+              ]}
+            >
+              Dashboard
+            </.link>
           </li>
           <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://phoenix.hexdocs.pm/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
+            <span
+              id="nav-rules"
+              class="flex cursor-not-allowed items-center gap-1.5 px-3 py-1.5 text-base-content/40"
+              title="Rules are coming soon"
+            >
+              Rules <span class="text-[0.65rem] uppercase tracking-wide">soon</span>
+            </span>
           </li>
         </ul>
-      </div>
+      </nav>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    <main class="px-6 py-8 lg:px-10">
+      <div class="max-w-6xl space-y-6">
         {render_slot(@inner_block)}
       </div>
     </main>
@@ -117,43 +124,6 @@ defmodule MinionWeb.Layouts do
         {gettext("Attempting to reconnect")}
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
-    </div>
-    """
-  end
-
-  @doc """
-  Provides dark vs light theme toggle based on themes defined in app.css.
-
-  See <head> in root.html.heex which applies the theme before page load.
-  """
-  def theme_toggle(assigns) do
-    ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="system"
-      >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="light"
-      >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
-
-      <button
-        class="flex p-2 cursor-pointer w-1/3"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="dark"
-      >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
-      </button>
     </div>
     """
   end
