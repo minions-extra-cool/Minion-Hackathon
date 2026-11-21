@@ -53,6 +53,69 @@ defmodule MinionWeb.DashboardLiveTest do
     assert has_element?(view, "#alerts-#{alert.id} [data-status=acked]")
   end
 
+  describe "search" do
+    setup %{rule: rule} do
+      %{
+        web: alert_fixture(rule, %{title: "Disk full on web-3"}),
+        db: alert_fixture(rule, %{title: "Disk full on db-1"})
+      }
+    end
+
+    test "typing filters the feed and puts the query in the URL", %{
+      conn: conn,
+      web: web,
+      db: db
+    } do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      view |> form("#search-form", %{"q" => "web3"}) |> render_change()
+
+      assert_patch(view, ~p"/?q=web3")
+      assert has_element?(view, "#alerts-#{web.id}")
+      refute has_element?(view, "#alerts-#{db.id}")
+      assert has_element?(view, "#search-summary", "web3")
+    end
+
+    test "a shared link opens with the search applied, and Clear removes it", %{
+      conn: conn,
+      web: web,
+      db: db
+    } do
+      {:ok, view, _html} = live(conn, ~p"/?q=db")
+
+      assert has_element?(view, "#alerts-#{db.id}")
+      refute has_element?(view, "#alerts-#{web.id}")
+
+      view |> element("#clear-search") |> render_click()
+
+      assert_patch(view, ~p"/")
+      assert has_element?(view, "#alerts-#{web.id}")
+      refute has_element?(view, "#search-summary")
+    end
+
+    test "matches source and owner as well as the title", %{conn: conn, team: team, web: web} do
+      {:ok, view, _html} = live(conn, ~p"/?q=#{team.name}")
+      assert has_element?(view, "#alerts-#{web.id}")
+
+      {:ok, view, _html} = live(conn, ~p"/?q=opsmon")
+      assert has_element?(view, "#alerts-#{web.id}")
+    end
+
+    test "live updates respect the search", %{conn: conn, rule: rule} do
+      {:ok, view, _html} = live(conn, ~p"/?q=web")
+
+      event =
+        Minion.Ingest.envelope("ops-monitor", "http", %{
+          "type" => "DISK_FULL",
+          "host" => "cache-7"
+        })
+
+      {:ok, [{:created, hidden}]} = Processor.process(event, [rule], dispatch: fn _ -> :ok end)
+
+      refute has_element?(view, "#alerts-#{hidden.id}")
+    end
+  end
+
   test "clicking an alert opens its detail page", %{conn: conn, rule: rule} do
     alert = alert_fixture(rule)
     {:ok, view, _html} = live(conn, ~p"/")

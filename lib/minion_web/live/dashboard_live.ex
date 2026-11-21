@@ -7,20 +7,41 @@ defmodule MinionWeb.DashboardLive do
   alias Minion.Repo
   alias Minion.Rules.Rule
 
+  @shown 200
+  @searched 1000
+
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket), do: Alerts.subscribe_all()
 
-    alerts = Alerts.list_recent()
+    {:ok, assign(socket, page_title: "Dashboard", owners: Alerts.owner_names(), rules: %{})}
+  end
 
-    {:ok,
-     socket
-     |> assign(
-       page_title: "Dashboard",
-       owners: Alerts.owner_names(),
-       rules: alerts |> Enum.map(& &1.rule) |> Enum.reject(&is_nil/1) |> Map.new(&{&1.id, &1})
-     )
-     |> stream(:alerts, alerts)}
+  @impl true
+  def handle_params(params, _uri, socket) do
+    query = params |> Map.get("q", "") |> String.trim()
+    alerts = Alerts.list_recent(if query == "", do: @shown, else: @searched)
+    socket = assign(socket, query: query, search_form: to_form(%{"q" => query}))
+
+    socket =
+      assign(
+        socket,
+        :rules,
+        alerts
+        |> Enum.map(& &1.rule)
+        |> Enum.reject(&is_nil/1)
+        |> Map.new(&{&1.id, &1})
+        |> Map.merge(socket.assigns.rules)
+      )
+
+    shown = alerts |> Enum.filter(&matches?(socket, &1)) |> Enum.take(@shown)
+    {:noreply, stream(socket, :alerts, shown, reset: true)}
+  end
+
+  @impl true
+  def handle_event("search", %{"q" => query}, socket) do
+    path = if String.trim(query) == "", do: ~p"/", else: ~p"/?#{[q: query]}"
+    {:noreply, push_patch(socket, to: path, replace: true)}
   end
 
   @impl true
@@ -28,7 +49,11 @@ defmodule MinionWeb.DashboardLive do
     socket = socket |> remember_rule(alert.rule_id) |> remember_owner(alert)
     alert = %{alert | rule: socket.assigns.rules[alert.rule_id]}
 
-    {:noreply, stream_insert(socket, :alerts, alert, at: 0)}
+    if matches?(socket, alert) do
+      {:noreply, stream_insert(socket, :alerts, alert, at: 0)}
+    else
+      {:noreply, stream_delete(socket, :alerts, alert)}
+    end
   end
 
   def handle_info({:delivery, _delivery}, socket), do: {:noreply, socket}
@@ -55,21 +80,52 @@ defmodule MinionWeb.DashboardLive do
 
   defp owner_label(owners, alert), do: owners[{alert.owner_type, alert.owner_id}] || "unknown"
 
+  defp matches?(%{assigns: %{query: ""}}, _alert), do: true
+
+  defp matches?(socket, alert) do
+    searchable =
+      Enum.join(
+        [
+          alert.title,
+          alert.body,
+          source(alert),
+          source_type(alert),
+          owner_label(socket.assigns.owners, alert),
+          alert.rule && alert.rule.name,
+          alert.severity,
+          status_label(alert.status, not is_nil(alert.closed_at))
+        ],
+        " "
+      )
+
+    Minion.Fuzzy.match?(socket.assigns.query, searchable)
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} active={:dashboard}>
       <div class="flex flex-wrap items-end justify-between gap-4">
         <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
-        <input
-          id="alert-search"
-          type="search"
-          name="q"
-          placeholder="Search alerts (coming soon)"
-          disabled
-          class="input input-sm w-72"
-        />
+        <.form for={@search_form} id="search-form" phx-change="search" phx-submit="search">
+          <.input
+            field={@search_form[:q]}
+            id="alert-search"
+            type="search"
+            placeholder="Search alerts"
+            autocomplete="off"
+            phx-debounce="150"
+            class="input input-sm w-72"
+          />
+        </.form>
       </div>
+
+      <p :if={@query != ""} id="search-summary" class="text-sm text-base-content/60">
+        Showing alerts matching <span class="font-semibold text-base-content">{@query}</span>
+        <.link patch={~p"/"} id="clear-search" class="ml-2 underline hover:text-base-content">
+          Clear
+        </.link>
+      </p>
 
       <div class="overflow-x-auto rounded-box border border-base-300 bg-base-100">
         <table id="alerts-table" class="table table-sm">
@@ -86,7 +142,7 @@ defmodule MinionWeb.DashboardLive do
           <tbody id="alerts" phx-update="stream">
             <tr id="alerts-empty" class="hidden only:table-row">
               <td colspan="6" class="py-10 text-center text-base-content/50">
-                No alerts yet. They appear here the moment an event matches a rule.
+                No alerts to show. New alerts appear here the moment an event matches a rule.
               </td>
             </tr>
             <tr
