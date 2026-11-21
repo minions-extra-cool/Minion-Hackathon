@@ -23,6 +23,7 @@ defmodule MinionWeb.Router do
     live "/rules", RulesLive
     live "/rules/new", RuleEditorLive, :new
     live "/rules/:id", RuleEditorLive, :edit
+    live "/rules/:id/runbook", RunbookLive
     live "/gateway", FakeGatewayLive
   end
 

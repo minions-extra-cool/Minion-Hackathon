@@ -101,4 +101,107 @@ defmodule MinionWeb.AlertLiveTest do
   test "an unknown alert is a 404", %{conn: conn} do
     assert_error_sent 404, fn -> live(conn, ~p"/alerts/#{Ecto.UUID.generate()}") end
   end
+
+  describe "runbooks" do
+    test "an unresolved alert shows its runbook filled in from the event", %{
+      conn: conn,
+      rule: rule,
+      alert: alert
+    } do
+      {:ok, _} =
+        Minion.Runbooks.save_runbook(%Minion.Runbooks.Runbook{rule_id: rule.id}, %{
+          body: "1. Clear /var/log on **{{payload.host}}**"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+      assert has_element?(view, "#runbook-body ol li strong", "web-1")
+      assert has_element?(view, "#runbook-body li", "Clear /var/log on")
+      assert has_element?(view, "#runbook-edit", "Edit runbook")
+    end
+
+    test "expanding the runbook opens it in a dialog that can be closed", %{
+      conn: conn,
+      rule: rule,
+      alert: alert
+    } do
+      {:ok, _} =
+        Minion.Runbooks.save_runbook(%Minion.Runbooks.Runbook{rule_id: rule.id}, %{
+          body: "- check {{payload.host}}"
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+      refute has_element?(view, "#runbook-dialog")
+
+      view |> element("#runbook-expand") |> render_click()
+      assert has_element?(view, "#runbook-dialog-body li", "check web-1")
+      assert has_element?(view, "#runbook-dialog-edit", "Edit runbook")
+
+      view |> element("#runbook-dialog-close") |> render_click()
+      refute has_element?(view, "#runbook-dialog")
+    end
+
+    test "an alert without a runbook invites writing one", %{conn: conn, rule: rule, alert: alert} do
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+      assert has_element?(view, "#runbook-missing")
+
+      assert has_element?(
+               view,
+               "#runbook-edit[href='/rules/#{rule.id}/runbook?from_alert=#{alert.id}']",
+               "Write a runbook"
+             )
+    end
+
+    test "resolving asks to update the runbook and links to the editor", %{
+      conn: conn,
+      rule: rule,
+      alert: alert
+    } do
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+      view |> element("#resolve") |> render_click()
+      view |> element("#resolve-confirm") |> render_click()
+
+      assert has_element?(view, "#resolve-done-title", "Alert resolved")
+      assert has_element?(view, "#resolve-runbook-prompt", "write a runbook")
+      refute has_element?(view, "#runbook")
+
+      {:ok, _editor, html} =
+        view
+        |> element("#resolve-update-runbook")
+        |> render_click()
+        |> follow_redirect(conn, ~p"/rules/#{rule.id}/runbook?#{[from_alert: alert.id]}")
+
+      assert html =~ "runbook-form"
+    end
+
+    test "choosing not now closes the dialog and keeps a link to the runbook", %{
+      conn: conn,
+      alert: alert
+    } do
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+      view |> element("#resolve") |> render_click()
+      view |> element("#resolve-confirm") |> render_click()
+      view |> element("#resolve-done") |> render_click()
+
+      refute has_element?(view, "#resolve-confirm-dialog")
+      assert has_element?(view, "#runbook-edit")
+    end
+
+    test "an alert whose rule was deleted resolves without the runbook prompt", %{
+      conn: conn,
+      rule: rule
+    } do
+      alert = alert_fixture(rule, %{rule_id: nil})
+      {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+      view |> element("#resolve") |> render_click()
+      view |> element("#resolve-confirm") |> render_click()
+
+      assert has_element?(view, "#resolve-done", "Done")
+      refute has_element?(view, "#resolve-update-runbook")
+    end
+  end
 end

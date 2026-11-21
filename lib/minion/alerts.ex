@@ -30,6 +30,9 @@ defmodule Minion.Alerts do
   @spec get_alert!(Ecto.UUID.t()) :: Alert.t()
   def get_alert!(id), do: Alert |> Repo.get!(id) |> Repo.preload(:rule)
 
+  @spec get_alert(Ecto.UUID.t()) :: Alert.t() | nil
+  def get_alert(id), do: Repo.get(Alert, id)
+
   @spec with_rule(Alert.t()) :: Alert.t()
   def with_rule(%Alert{} = alert), do: Repo.preload(alert, :rule)
 
