@@ -9,7 +9,41 @@ Each HTTP request carries one event: 90% `DISK_FULL` repeats across 200 hosts (d
 recorded by the pipeline for every event (`GET /metrics`). "Delivered" is ingest to the email
 accepted by the SMTP server, from the database after the run.
 
-## Throughput ceiling by number of pipeline processors
+## Current pipeline: batched (12 processors, 8 batchers, batches of up to 500 / 10 ms, DB pool 30)
+
+Events are matched in parallel, then grouped by fingerprint into batches; each batch is one
+transaction with one multi-row upsert (repeats folded into a counter first) and dispatch for the
+alerts that are new. If a batch fails for any reason other than a database outage, its events are
+retried one by one through the single-event path (with its retries and dead-letter topic).
+
+One event per request (generator limit ~10,000 requests/s):
+
+| Target/s | Processed/s | HTTP p50 / p99 | e2e p50 / p99 | Lag after stage |
+|---|---|---|---|---|
+| 2,000 | 1,996 | 1.8 / 3.5 ms | 44 / 171 ms | 0 |
+| 4,000 | 3,985 | 2.5 / 22.6 ms | 82 / 208 ms | 0 |
+| 6,000 | 5,970 | 3.1 / 10.4 ms | 100 / 171 ms | 50 |
+| 8,000 | 7,956 | 3.8 / 29.2 ms | 116 / 198 ms | 78 |
+| 10,000 | 9,927 | 6.3 / 53.9 ms | 134 / 230 ms | 290 |
+
+Ten events per request:
+
+| Target events/s | Processed/s | HTTP p50 / p99 | e2e p50 / p99 | Lag after stage |
+|---|---|---|---|---|
+| 10,000 | 9,936 | 2.2 / 6.8 ms | 128 / 526 ms | 0 |
+| 20,000 | 19,854 | 3.0 / 8.4 ms | 163 / 339 ms | 0 |
+| 30,000 | 29,788 | 3.5 / 12.6 ms | 171 / 323 ms | 1,989 |
+| 40,000 | 39,528 | 3.9 / 24 ms | 266 / 433 ms | 7,739 (slowly growing: about the ceiling) |
+
+- Ceiling about 40,000 events/s, roughly 10× the unbatched pipeline on the same machine.
+- No loss or double counting: in both runs the DISK_FULL alerts' counters sum exactly to the
+  DISK_FULL events accepted (539,975 of 599,972 and 1,799,793 of 1,999,770; the rest match no
+  rule), with zero rejected requests.
+- Ingest to email delivered: p50 1.7–1.8 s, p99 3.2–3.5 s under load.
+- Trade-off: at low rates end-to-end latency is higher than unbatched (p50 44 ms vs 17 ms at
+  2,000/s), from the 10 ms batch window and larger transactions.
+
+## Before batching: throughput ceiling by number of pipeline processors
 
 | Processors / DB pool | Comfortable at | Ceiling (processed/s) | e2e p50 / p99 at 4,000/s | Backlog drain rate |
 |---|---|---|---|---|
