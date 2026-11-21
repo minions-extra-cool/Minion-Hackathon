@@ -154,3 +154,26 @@ html { scrollbar-gutter: stable; }
   height: 0.4375rem;
   background: color-mix(in oklch, var(--color-base-content) 22%, transparent);
 }
+
+.logo-lid-skin {
+  fill: var(--color-primary);
+}
+
+.logo-lid-top {
+  transform: translateY(-13px);
+}
+
+.logo-lid-bottom {
+  transform: translateY(13px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #home-logo:hover .logo-lid {
+    animation: logo-blink 320ms 1;
+  }
+}
+
+@keyframes logo-blink {
+  0% { animation-timing-function: ease-in; }
+  55%, 65% { transform: translateY(0); animation-timing-function: ease-out; }
+}
