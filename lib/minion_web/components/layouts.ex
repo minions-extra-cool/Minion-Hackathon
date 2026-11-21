@@ -31,39 +31,46 @@ defmodule MinionWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
+  attr :active, :atom, default: nil, values: [nil, :dashboard, :rules]
+
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex px-1 space-x-4 items-center">
+    <header class="border-b border-base-300">
+      <nav id="main-nav" class="flex items-center gap-8 px-6 py-3 lg:px-10">
+        <.link navigate={~p"/"} class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="inline-block size-3 rounded-full bg-primary ring-2 ring-base-content/80" />
+          Minion
+        </.link>
+        <ul class="flex items-center gap-1 text-sm">
           <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
+            <.link
+              id="nav-dashboard"
+              navigate={~p"/"}
+              class={[
+                "rounded-md px-3 py-1.5 transition-colors hover:bg-base-200",
+                @active == :dashboard && "bg-primary/60 font-medium hover:bg-primary/70"
+              ]}
+            >
+              Dashboard
+            </.link>
           </li>
           <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://phoenix.hexdocs.pm/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
+            <span
+              id="nav-rules"
+              class="flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-base-content/40"
+              title="Rules are coming soon"
+            >
+              Rules <span class="text-[0.65rem] uppercase tracking-wide">soon</span>
+            </span>
           </li>
         </ul>
-      </div>
+      </nav>
     </header>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
+    <main class="px-6 py-8 lg:px-10">
+      <div class="max-w-6xl space-y-6">
         {render_slot(@inner_block)}
       </div>
     </main>
