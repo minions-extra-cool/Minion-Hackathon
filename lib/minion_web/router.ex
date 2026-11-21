@@ -19,6 +19,9 @@ defmodule MinionWeb.Router do
 
     live "/", DashboardLive
     live "/alerts/:id", AlertLive
+    live "/rules", RulesLive
+    live "/rules/new", RuleEditorLive, :new
+    live "/rules/:id", RuleEditorLive, :edit
     live "/gateway", FakeGatewayLive
   end
 

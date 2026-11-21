@@ -197,6 +197,13 @@ defmodule MinionWeb.AlertLive do
             </summary>
             <pre class="mt-2 overflow-x-auto rounded-box bg-base-200 p-4 font-mono text-xs">{Jason.encode!(@alert.sample_event, pretty: true)}</pre>
           </details>
+          <.link
+            id="rule-from-event"
+            navigate={~p"/rules/new?#{[from_alert: @alert.id]}"}
+            class="mt-2 inline-flex items-center gap-1 text-sm underline hover:text-base-content"
+          >
+            <.icon name="hero-plus-mini" class="size-4" /> Create a rule from this event
+          </.link>
         </.fact>
       </dl>
     </Layouts.app>

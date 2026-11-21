@@ -39,6 +39,28 @@ defmodule MinionWeb.AlertComponents do
   defp light_label(:resolved, severity, _closed), do: "Resolved, #{severity}"
   defp light_label(status, severity, closed), do: "#{status_label(status, closed)}, #{severity}"
 
+  attr :severity, :atom, required: true
+  attr :enabled, :boolean, default: true
+
+  def rule_light(assigns) do
+    ~H"""
+    <span
+      class="inline-flex size-3 items-center justify-center"
+      title={"#{@severity}#{if @enabled, do: "", else: ", disabled"}"}
+      data-severity={@severity}
+      data-enabled={to_string(@enabled)}
+    >
+      <span class={[
+        "status-light",
+        if(@enabled, do: "status-light-open", else: "status-light-resolved"),
+        @severity == :critical && "status-light-critical",
+        @severity == :warning && "status-light-warning",
+        @severity == :info && "status-light-info"
+      ]} />
+    </span>
+    """
+  end
+
   def status_label(:open, false), do: "Open"
   def status_label(:open, true), do: "Open, no new events (quiet)"
   def status_label(:acked, false), do: "Acknowledged"

@@ -57,13 +57,16 @@ defmodule MinionWeb.Layouts do
             </.link>
           </li>
           <li>
-            <span
+            <.link
               id="nav-rules"
-              class="flex cursor-not-allowed items-center gap-1.5 px-3 py-1.5 text-base-content/40"
-              title="Rules are coming soon"
+              navigate={~p"/rules"}
+              class={[
+                "px-3 py-1.5 transition-colors hover:bg-base-200",
+                @active == :rules && "bg-primary/60 font-medium hover:bg-primary/70"
+              ]}
             >
-              Rules <span class="text-[0.65rem] uppercase tracking-wide">soon</span>
-            </span>
+              Rules
+            </.link>
           </li>
         </ul>
       </nav>
