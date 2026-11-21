@@ -63,37 +63,49 @@ defmodule MinionWeb.AlertComponents do
   end
 
   attr :active, :atom, required: true, values: [:alerts, :unmatched]
+  slot :actions
 
-  def feed_tabs(assigns) do
+  def feed_header(assigns) do
     ~H"""
+    <div class="flex min-h-8 flex-wrap items-center justify-between gap-4 [&_.fieldset]:mb-0 [&_.fieldset]:py-0">
+      <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
+      {render_slot(@actions)}
+    </div>
+
     <nav id="feed-tabs" class="flex gap-6 border-b border-base-300 text-sm" aria-label="Feed">
-      <.link
-        id="tab-alerts"
-        navigate={~p"/"}
-        class={[
-          "-mb-px border-b-2 pb-2 transition-colors",
-          if(@active == :alerts,
-            do: "border-base-content font-semibold",
-            else: "border-transparent text-base-content/60 hover:text-base-content"
-          )
-        ]}
-      >
-        Alerts
-      </.link>
-      <.link
+      <.feed_tab id="tab-alerts" navigate={~p"/"} label="Alerts" active={@active == :alerts} />
+      <.feed_tab
         id="tab-unmatched"
         navigate={~p"/unmatched"}
-        class={[
-          "-mb-px border-b-2 pb-2 transition-colors",
-          if(@active == :unmatched,
-            do: "border-base-content font-semibold",
-            else: "border-transparent text-base-content/60 hover:text-base-content"
-          )
-        ]}
-      >
-        Unmatched events
-      </.link>
+        label="Unmatched events"
+        active={@active == :unmatched}
+      />
     </nav>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :navigate, :string, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, required: true
+
+  defp feed_tab(assigns) do
+    ~H"""
+    <.link
+      id={@id}
+      navigate={@navigate}
+      data-label={@label}
+      class={[
+        "-mb-px inline-flex flex-col border-b-2 pb-2 transition-colors",
+        "after:invisible after:h-0 after:overflow-hidden after:font-semibold after:content-[attr(data-label)]",
+        if(@active,
+          do: "border-base-content font-semibold",
+          else: "border-transparent text-base-content/60 hover:text-base-content"
+        )
+      ]}
+    >
+      {@label}
+    </.link>
     """
   end
 

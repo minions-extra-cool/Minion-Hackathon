@@ -47,8 +47,7 @@ defmodule MinionWeb.UnmatchedLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} active={:dashboard}>
-      <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
-      <.feed_tabs active={:unmatched} />
+      <.feed_header active={:unmatched} />
 
       <p class="text-sm text-base-content/60">
         Events no enabled rule matched, grouped by source and shape. Turn any of them into alerts with a rule.
