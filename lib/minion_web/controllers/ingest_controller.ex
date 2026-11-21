@@ -6,30 +6,23 @@ defmodule MinionWeb.IngestController do
   @max_body_bytes 1_000_000
 
   def create(conn, %{"source" => source}) do
-    conn = fetch_query_params(conn)
-
-    case conn |> ingest_key() |> authenticate() do
+    case conn |> bearer_token() |> authenticate() do
       {:ok, team} -> read_and_publish(conn, source, team)
       {:error, message} -> unauthorized(conn, message)
     end
   end
 
-  defp ingest_key(conn) do
-    bearer =
-      Enum.find_value(get_req_header(conn, "authorization"), fn header ->
-        case String.split(header, " ", parts: 2) do
-          [scheme, key] -> if String.downcase(scheme) == "bearer", do: String.trim(key)
-          _ -> nil
-        end
-      end)
-
-    bearer || List.first(get_req_header(conn, "x-minion-key")) || conn.query_params["key"]
+  defp bearer_token(conn) do
+    Enum.find_value(get_req_header(conn, "authorization"), fn header ->
+      case String.split(header, " ", parts: 2) do
+        [scheme, key] -> if String.downcase(scheme) == "bearer", do: String.trim(key)
+        _ -> nil
+      end
+    end)
   end
 
   defp authenticate(key) when key in [nil, ""],
-    do:
-      {:error,
-       "missing team key: send Authorization: Bearer <key>, an X-Minion-Key header, or ?key=<key>"}
+    do: {:error, "missing team key: send it as Authorization: Bearer <key>"}
 
   defp authenticate(key) do
     case Accounts.team_for_ingest_key(key) do

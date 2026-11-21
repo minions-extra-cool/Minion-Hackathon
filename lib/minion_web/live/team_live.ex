@@ -200,9 +200,9 @@ defmodule MinionWeb.TeamLive do
             <p class="text-sm text-base-content/70">
               Systems that post events to
               <code class="font-mono text-xs">/ingest/&lt;source&gt;</code>
-              for this team must send this key, as <code class="font-mono text-xs">Authorization: Bearer &lt;key&gt;</code>,
-              an <code class="font-mono text-xs">X-Minion-Key</code>
-              header, or <code class="font-mono text-xs">?key=</code>. Without a valid key the post is refused with 401.
+              for this team must send this key in the
+              <code class="font-mono text-xs">Authorization: Bearer &lt;key&gt;</code>
+              header. Without a valid key the post is refused with 401.
             </p>
             <p :if={@team.ingest_key_hint && !@new_key} id="ingest-key-status" class="text-sm">
               Key ending <span class="font-mono">…{@team.ingest_key_hint}</span>, created

@@ -48,26 +48,34 @@ defmodule MinionWeb.IngestControllerTest do
 
       assert %{"error" => "empty body"} = json_response(conn, 400)
     end
+  end
 
-    test "the key can also come as X-Minion-Key or ?key=", %{conn: conn, key: key} do
-      by_header =
+  describe "without a valid key" do
+    test "a valid key anywhere but the Bearer header is refused", %{conn: conn, key: key} do
+      in_other_header =
         conn
         |> put_req_header("x-minion-key", key)
         |> put_req_header("content-type", "application/json")
         |> post(~p"/ingest/ops-monitor", ~s({"a":1}))
 
-      assert %{"accepted" => 1} = json_response(by_header, 202)
+      assert json_response(in_other_header, 401)
 
-      by_query =
+      in_query =
         build_conn()
         |> put_req_header("content-type", "application/json")
         |> post(~p"/ingest/ops-monitor?#{[key: key]}", ~s({"a":1}))
 
-      assert %{"accepted" => 1} = json_response(by_query, 202)
-    end
-  end
+      assert json_response(in_query, 401)
 
-  describe "without a valid key" do
+      basic =
+        build_conn()
+        |> put_req_header("authorization", "Basic #{key}")
+        |> put_req_header("content-type", "application/json")
+        |> post(~p"/ingest/ops-monitor", ~s({"a":1}))
+
+      assert json_response(basic, 401)
+    end
+
     test "a post without a key is refused with 401 and a hint", %{conn: conn} do
       conn =
         conn
