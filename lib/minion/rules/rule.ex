@@ -35,6 +35,8 @@ defmodule Minion.Rules.Rule do
     :notify
   ]
 
+  def contract_fields, do: Enum.map(@fields, &Atom.to_string/1)
+
   def cast_changeset(rule, attrs), do: cast(rule, attrs, @fields)
 
   def changeset(rule, attrs) do

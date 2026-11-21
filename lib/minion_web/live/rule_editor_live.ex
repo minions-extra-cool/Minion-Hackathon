@@ -4,7 +4,9 @@ defmodule MinionWeb.RuleEditorLive do
   import MinionWeb.AlertComponents, only: [rule_light: 1]
 
   alias Minion.{Alerts, Rules}
+  alias Minion.AI.RuleDraft
   alias Minion.Rules.{ConditionTree, Draft, Matcher, Path, Rule, Template}
+  alias Phoenix.LiveView.AsyncResult
 
   @recent_events 20
 
@@ -37,6 +39,7 @@ defmodule MinionWeb.RuleEditorLive do
        mode: "visual",
        json_text: "",
        json_error: nil,
+       ai_draft: %AsyncResult{},
        errors: [],
        form: to_form(%{}),
        owner_options: owner_options,
@@ -90,6 +93,20 @@ defmodule MinionWeb.RuleEditorLive do
     do:
       {:noreply,
        update_tree(socket, &ConditionTree.remove_at(&1, ConditionTree.parse_path_id(id)))}
+
+  def handle_event("ai_draft", _params, %{assigns: %{test_env: nil}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("ai_draft", _params, socket) do
+    event = socket.assigns.test_env
+    owner = socket.assigns.draft["owner"]
+    notify_options = socket.assigns.notify_options
+
+    {:noreply,
+     socket
+     |> assign(:ai_draft, AsyncResult.loading())
+     |> start_async(:ai_draft, fn -> RuleDraft.suggest(event, owner, notify_options) end)}
+  end
 
   def handle_event("mode", %{"mode" => "json"}, socket) do
     json = socket.assigns.draft |> Draft.to_attrs() |> Jason.encode!(pretty: true)
@@ -175,6 +192,40 @@ defmodule MinionWeb.RuleEditorLive do
       {:error, error} -> {:error, "Invalid JSON: #{Exception.message(error)}"}
     end
   end
+
+  @impl true
+  def handle_async(:ai_draft, {:ok, {:ok, %{draft: draft} = result}}, socket) do
+    socket =
+      socket
+      |> assign(draft: draft, mode: "visual", json_error: nil)
+      |> assign(:ai_draft, AsyncResult.ok(socket.assigns.ai_draft, result))
+
+    {:noreply, revalidate(socket, {:ok, Draft.to_attrs(draft)})}
+  end
+
+  def handle_async(:ai_draft, {:ok, {:error, reason}}, socket),
+    do: {:noreply, assign(socket, :ai_draft, AsyncResult.failed(socket.assigns.ai_draft, reason))}
+
+  def handle_async(:ai_draft, {:exit, reason}, socket),
+    do:
+      {:noreply,
+       assign(socket, :ai_draft, AsyncResult.failed(socket.assigns.ai_draft, {:exit, reason}))}
+
+  defp ai_draft_failure(:not_configured),
+    do: "AI is not configured. Set GEMINI_API_KEY and restart the server."
+
+  defp ai_draft_failure({:unreachable, message}), do: "The AI could not be reached: #{message}"
+
+  defp ai_draft_failure({:api_error, status, message}),
+    do: "The AI answered #{status}: #{message}"
+
+  defp ai_draft_failure(:not_json), do: "The AI's answer was not a rule. Try again."
+
+  defp ai_draft_failure({:invalid, errors}),
+    do:
+      "The AI's rule was not valid (#{errors |> Map.keys() |> Enum.join(", ")}). Try again or write it by hand."
+
+  defp ai_draft_failure(_reason), do: "Could not draft a rule. Try again."
 
   defp put_test_text(socket, text) do
     {env, error} =
@@ -304,6 +355,44 @@ defmodule MinionWeb.RuleEditorLive do
           </button>
         </div>
       </div>
+
+      <section
+        :if={is_nil(@rule.id)}
+        id="ai-draft"
+        class="flex flex-wrap items-center justify-between gap-3 border-l-4 border-primary bg-base-200 px-5 py-3 text-sm"
+      >
+        <p id="ai-draft-status" class="inline-flex items-center gap-2">
+          <.icon name="hero-sparkles-mini" class="size-4 shrink-0" />
+          <span :if={@ai_draft.loading}>Drafting a rule from the test event…</span>
+          <span :if={@ai_draft.ok? and @ai_draft.result.matches_sample?}>
+            AI drafted this rule from the test event, and it matches that event. Check it, then save.
+          </span>
+          <span
+            :if={@ai_draft.ok? and !@ai_draft.result.matches_sample?}
+            id="ai-draft-mismatch"
+            class="font-medium"
+          >
+            AI drafted this rule, but it does not match the test event. Check the conditions.
+          </span>
+          <span :if={@ai_draft.failed} id="ai-draft-error" class="font-medium">
+            {ai_draft_failure(@ai_draft.failed)}
+          </span>
+          <span :if={!@ai_draft.ok? and !@ai_draft.loading and !@ai_draft.failed}>
+            {if @test_env,
+              do: "AI can draft this whole rule from the event in the test panel.",
+              else: "Paste an event in the test panel below and AI can draft this rule for you."}
+          </span>
+        </p>
+        <button
+          id="ai-draft-button"
+          type="button"
+          phx-click="ai_draft"
+          disabled={@ai_draft.loading || is_nil(@test_env)}
+          class="btn btn-sm btn-primary"
+        >
+          {if @ai_draft.ok?, do: "Draft again", else: "Draft with AI"}
+        </button>
+      </section>
 
       <div
         :if={@errors != []}
