@@ -7,10 +7,13 @@ defmodule Minion.Application do
 
   @impl true
   def start(_type, _args) do
+    Minion.Metrics.setup()
+
     children = [
       MinionWeb.Telemetry,
       Minion.Repo,
       {DNSCluster, query: Application.get_env(:minion, :dns_cluster_query) || :ignore},
+      Minion.Cluster,
       {Phoenix.PubSub, name: Minion.PubSub},
       Minion.FakeGateway,
       {Oban, Application.fetch_env!(:minion, Oban)},

@@ -86,6 +86,8 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Kafka sources:** external topics are listed in `config :minion, :kafka_sources` as `%{topic: ..., source: ...}`; adding one is a config line. `Minion.Ingest.KafkaSource` wraps each message (JSON, or the raw string) in an envelope with `source_type: "kafka"` and publishes batches to `events`, retrying until the publish succeeds. A new subscription starts at the topic's latest offset, so history is not replayed. Snappy, lz4 and gzip compressed batches are supported; zstd is not.
 
+**Pipeline batching:** processors only decode and match (`Processor.candidates/2`); matched events are batched by fingerprint (`PIPELINE_BATCHERS`, `PIPELINE_BATCH_SIZE`, 10 ms timeout), repeats are folded into one counter, and each batch is one multi-row upsert plus dispatch for its new alerts in a single transaction (`Processor.process_batch/2`). Events no rule matches go to their own `:unmatched` batches and through `Processor.process/3` one at a time, which records them. A batch that fails for a reason other than a database outage falls back to processing its events one by one.
+
 **Pipeline failures:** Kafka acknowledges every message, so the pipeline retries inside the handler: database outages are retried until the database is back; other errors are retried 5 times and the event is then moved to the `events_dead` topic. The pipeline and rules cache do not run in tests (`config :minion, :pipeline, enabled: false`); test `Minion.Alerts.Processor` directly.
 
 **Channel adapter:** a module implementing `Minion.Channel` with `deliver(alert, person) :: :ok | {:error, term}`.

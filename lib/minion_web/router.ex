@@ -31,6 +31,11 @@ defmodule MinionWeb.Router do
     post "/:source", IngestController, :create
   end
 
+  scope "/metrics", MinionWeb do
+    get "/", MetricsController, :show
+    post "/reset", MetricsController, :reset
+  end
+
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:minion, :dev_routes) do
     # If you want to use the LiveDashboard in production, you should put

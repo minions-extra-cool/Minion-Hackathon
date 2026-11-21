@@ -81,6 +81,30 @@ if events_partitions = System.get_env("EVENTS_PARTITIONS") do
   config :minion, :kafka, events_partitions: String.to_integer(events_partitions)
 end
 
+if retention = System.get_env("EVENTS_RETENTION_HOURS") do
+  config :minion, :kafka, events_retention_hours: String.to_integer(retention)
+end
+
+if processors = System.get_env("PIPELINE_PROCESSORS") do
+  config :minion, :pipeline, processors: String.to_integer(processors)
+end
+
+if cluster_nodes = System.get_env("CLUSTER_NODES") do
+  config :minion,
+         :cluster_nodes,
+         cluster_nodes
+         |> String.split(",", trim: true)
+         |> Enum.map(&String.to_atom(String.trim(&1)))
+end
+
+if batchers = System.get_env("PIPELINE_BATCHERS") do
+  config :minion, :pipeline, batchers: String.to_integer(batchers)
+end
+
+if batch_size = System.get_env("PIPELINE_BATCH_SIZE") do
+  config :minion, :pipeline, batch_size: String.to_integer(batch_size)
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :minion, MinionWeb.Endpoint,
@@ -105,6 +129,33 @@ if config_env() == :prod do
       environment variable DATABASE_URL is missing.
       For example: ecto://USER:PASS@HOST/DATABASE
       """
+
+  case System.get_env("SMTP_RELAY") do
+    nil ->
+      IO.puts(:stderr, "warning: SMTP_RELAY is not set, so email deliveries will fail")
+
+    relay ->
+      credentials =
+        case System.get_env("SMTP_USERNAME") do
+          nil ->
+            [auth: :never]
+
+          username ->
+            [auth: :always, username: username, password: System.get_env("SMTP_PASSWORD")]
+        end
+
+      tls = if System.get_env("SMTP_TLS") == "always", do: :always, else: :if_available
+
+      config :minion,
+             Minion.Mailer,
+             [
+               adapter: Swoosh.Adapters.SMTP,
+               relay: relay,
+               port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+               ssl: System.get_env("SMTP_SSL") in ~w(true 1),
+               tls: tls
+             ] ++ credentials
+  end
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 

@@ -48,6 +48,9 @@ defmodule Minion.Delivery.Worker do
     channel_for(delivery.channel).deliver(delivery.alert, delivery.person)
   rescue
     exception -> {:error, Exception.message(exception)}
+  catch
+    :exit, {reason, {GenServer, :call, _call}} -> {:error, {:exit, reason}}
+    :exit, reason -> {:error, {:exit, reason}}
   end
 
   defp last_attempt?(job, reason),

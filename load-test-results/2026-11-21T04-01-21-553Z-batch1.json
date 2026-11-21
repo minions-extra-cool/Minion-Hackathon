@@ -1,0 +1,48 @@
+{
+  "run": "mwpvr7l5",
+  "base_url": "http://localhost:4000",
+  "batch": 1,
+  "stage_seconds": 40,
+  "max_in_flight": 512,
+  "stages": [
+    {
+      "target_events_per_s": 4000,
+      "accepted_events_per_s": 3999,
+      "processed_events_per_s": 2000,
+      "http_ms": {
+        "p50": 2.4,
+        "p99": 21.5
+      },
+      "statuses": {
+        "202": 159993
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 501.1,
+        "p50": 45.9,
+        "p95": 95.4,
+        "p99": 218.6
+      },
+      "lag_at_end": 59912,
+      "vm": {
+        "node": "minion1@MacBook-Pro-Antoni-Chmiela",
+        "processes": 825,
+        "run_queue": 0,
+        "schedulers": 12,
+        "cluster": [],
+        "memory_mb": 119
+      }
+    }
+  ],
+  "drained": {
+    "seconds": 4.4,
+    "lag": 0,
+    "processed_while_draining": 59912,
+    "pipeline_latency_ms": {
+      "max": 33119.6,
+      "p50": 17649.8,
+      "p95": 31696.5,
+      "p99": 33281.4
+    }
+  }
+}
