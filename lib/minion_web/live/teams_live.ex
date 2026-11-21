@@ -24,6 +24,17 @@ defmodule MinionWeb.TeamsLive do
     end
   end
 
+  @shown_members 4
+
+  @spec member_names([map()]) :: String.t()
+  def member_names(members) when length(members) <= @shown_members,
+    do: Enum.map_join(members, ", ", & &1.name)
+
+  def member_names(members) do
+    shown = members |> Enum.take(@shown_members - 1) |> Enum.map_join(", ", & &1.name)
+    shown <> " and #{length(members) - @shown_members + 1} others"
+  end
+
   @spec auto_resolve_text(map()) :: String.t()
   def auto_resolve_text(settings) do
     parts =
@@ -46,15 +57,7 @@ defmodule MinionWeb.TeamsLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:teams}>
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Teams</h1>
-        <p id="teams-explainer" class="mt-2 max-w-3xl text-sm text-base-content/70">
-          A team owns rules, and the alerts those rules open. A rule can notify the whole team,
-          one person, or the team's on-call person. Each member decides how they are reached
-          on their own profile. Quiet info and warning alerts can resolve themselves after a
-          time the team picks; critical alerts always wait for a person.
-        </p>
-      </div>
+      <h1 class="text-2xl font-semibold tracking-tight">Teams</h1>
 
       <div id="teams" class="grid gap-4 md:grid-cols-2">
         <.link
@@ -71,7 +74,7 @@ defmodule MinionWeb.TeamsLive do
           </div>
           <p class="mt-2 text-sm">
             <span :if={team.members == []} class="text-base-content/50">No members yet</span>
-            {Enum.map_join(team.members, ", ", & &1.name)}
+            {member_names(team.members)}
           </p>
           <p class="mt-1 text-sm text-base-content/60">
             On call: {if team.oncall_person, do: team.oncall_person.name, else: "nobody"}

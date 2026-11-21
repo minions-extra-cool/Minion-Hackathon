@@ -197,13 +197,6 @@ defmodule MinionWeb.TeamLive do
             <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
               Webhook key
             </h2>
-            <p class="text-sm text-base-content/70">
-              Systems that post events to
-              <code class="font-mono text-xs">/ingest/&lt;source&gt;</code>
-              for this team must send this key in the
-              <code class="font-mono text-xs">Authorization: Bearer &lt;key&gt;</code>
-              header. Without a valid key the post is refused with 401.
-            </p>
             <p :if={@team.ingest_key_hint && !@new_key} id="ingest-key-status" class="text-sm">
               Key ending <span class="font-mono">…{@team.ingest_key_hint}</span>, created
               <.local_time id="ingest-key-created" at={@team.ingest_key_created_at} />.

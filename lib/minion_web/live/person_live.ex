@@ -229,8 +229,7 @@ defmodule MinionWeb.PersonLive do
               id="discord-saved"
               class="-mt-1 mb-1 inline-flex items-center gap-2 text-xs text-base-content/70"
             >
-              <.icon name="hero-check-circle-micro" class="size-4 text-success" />
-              A webhook is saved (hidden here).
+              <.icon name="hero-check-circle-micro" class="size-4 text-success" /> Webhook saved.
               <button
                 id="remove-discord"
                 type="button"
@@ -240,11 +239,6 @@ defmodule MinionWeb.PersonLive do
                 Remove
               </button>
             </p>
-            <p id="discord-help" class="-mt-1 text-xs text-base-content/50">
-              In Discord: Server Settings → Integrations → Webhooks → New Webhook, pick a channel,
-              then Copy Webhook URL. Treat it like a password: anyone with it can post there.
-              Then tick Discord below for the severities you want.
-            </p>
           </div>
         </section>
 
@@ -253,11 +247,6 @@ defmodule MinionWeb.PersonLive do
             <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
               How to reach you
             </h2>
-            <p class="mt-1 max-w-2xl text-sm text-base-content/60">
-              For each severity, the first line whose hours match the current time wins.
-              A line without hours always matches. Every alert is in the feed either way.
-              A rule can still choose the channels for everyone it notifies.
-            </p>
           </div>
 
           <div
