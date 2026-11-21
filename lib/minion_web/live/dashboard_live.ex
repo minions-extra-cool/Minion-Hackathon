@@ -64,13 +64,7 @@ defmodule MinionWeb.DashboardLive do
         <div>
           <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
           <p class="mt-1 flex items-center gap-2 text-sm text-base-content/60">
-            <span
-              id="live-indicator"
-              class={[
-                "inline-block size-2 rounded-full",
-                if(@live?, do: "bg-success", else: "bg-base-content/30")
-              ]}
-            />
+            <.live_light live={@live?} />
             {if @live?, do: "Updating live as events arrive", else: "Connecting…"}
           </p>
         </div>
@@ -113,8 +107,8 @@ defmodule MinionWeb.DashboardLive do
               phx-click={JS.navigate(~p"/alerts/#{alert.id}")}
             >
               <td>
-                <div class="flex items-center gap-2">
-                  <.rule_stripe alert={alert} class="h-5" />
+                <div class="flex items-center gap-2.5">
+                  <.priority_bar severity={alert.severity} class="h-5" />
                   <.status_light status={alert.status} closed={not is_nil(alert.closed_at)} />
                 </div>
               </td>

@@ -63,3 +63,48 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+.status-light {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+}
+
+.status-light-open {
+  background: var(--color-error);
+  box-shadow: 0 0 6px 1px color-mix(in oklch, var(--color-error) 40%, transparent);
+}
+
+.status-light-acked {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px 1px color-mix(in oklch, var(--color-warning) 45%, transparent);
+}
+
+.status-light-resolved,
+.status-light-offline {
+  background: color-mix(in oklch, var(--color-base-content) 22%, transparent);
+}
+
+.status-light-live {
+  background: var(--color-success);
+  animation: status-light-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes status-light-pulse {
+  0%, 100% {
+    opacity: 0.8;
+    box-shadow: 0 0 3px 0 color-mix(in oklch, var(--color-success) 30%, transparent);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 9px 2px color-mix(in oklch, var(--color-success) 50%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-light-live {
+    animation: none;
+    box-shadow: 0 0 6px 1px color-mix(in oklch, var(--color-success) 40%, transparent);
+  }
+}

@@ -59,6 +59,10 @@ defmodule MinionWeb.AlertLive do
 
   defp fields(_alert), do: []
 
+  defp delivery_icon(:delivered), do: "hero-check-circle-micro"
+  defp delivery_icon(:pending), do: "hero-arrow-path-micro"
+  defp delivery_icon(:failed), do: "hero-x-circle-micro"
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -73,7 +77,7 @@ defmodule MinionWeb.AlertLive do
 
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="flex items-start gap-3">
-          <.rule_stripe alert={@alert} class="h-8" />
+          <.priority_bar severity={@alert.severity} class="h-8" />
           <div>
             <h1 id="alert-title" class="text-2xl font-semibold tracking-tight">{@alert.title}</h1>
             <p class="mt-1 text-sm text-base-content/60">
@@ -124,7 +128,12 @@ defmodule MinionWeb.AlertLive do
           {source(@alert)}
           <span :if={source_type(@alert)} class="text-base-content/50">via {source_type(@alert)}</span>
         </.fact>
-        <.fact label="Rule">{(@alert.rule && @alert.rule.name) || "deleted rule"}</.fact>
+        <.fact label="Rule">
+          <span class="inline-flex flex-wrap items-center gap-3">
+            {(@alert.rule && @alert.rule.name) || "deleted rule"}
+            <.rule_color_swatch alert={@alert} />
+          </span>
+        </.fact>
         <.fact label="Owner">
           {@owner || "unknown"}
           <span class="text-base-content/50">({@alert.owner_type})</span>
@@ -157,12 +166,16 @@ defmodule MinionWeb.AlertLive do
               id={dom_id}
               class="flex flex-wrap items-center gap-2"
             >
-              <span class={[
-                "badge badge-sm",
-                delivery.status == :delivered && "badge-success badge-soft",
-                delivery.status == :pending && "badge-warning badge-soft",
-                delivery.status == :failed && "badge-error badge-soft"
-              ]}>
+              <span class="inline-flex w-24 items-center gap-1 text-base-content/70">
+                <.icon
+                  name={delivery_icon(delivery.status)}
+                  class={[
+                    "size-4",
+                    delivery.status == :delivered && "text-success",
+                    delivery.status == :pending && "text-base-content/50",
+                    delivery.status == :failed && "text-base-content"
+                  ]}
+                />
                 {delivery.status}
               </span>
               <span class="font-medium">{delivery.person.name}</span>
@@ -170,7 +183,7 @@ defmodule MinionWeb.AlertLive do
               <span :if={delivery.attempts > 1} class="text-xs text-base-content/50">
                 {delivery.attempts} attempts
               </span>
-              <span :if={delivery.last_error} class="font-mono text-xs text-error/80">
+              <span :if={delivery.last_error} class="font-mono text-xs text-base-content/50">
                 {delivery.last_error}
               </span>
             </li>

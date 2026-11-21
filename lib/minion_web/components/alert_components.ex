@@ -1,6 +1,8 @@
 defmodule MinionWeb.AlertComponents do
   use Phoenix.Component
 
+  import MinionWeb.CoreComponents, only: [icon: 1]
+
   alias Minion.Alerts.Alert
 
   attr :status, :atom, required: true
@@ -13,10 +15,10 @@ defmodule MinionWeb.AlertComponents do
     ~H"""
     <span id={@id} class="inline-flex items-center" title={@label} data-status={@status}>
       <span class={[
-        "inline-block size-3 rounded-full",
-        @status == :open && "bg-error ring-4 ring-error/20",
-        @status == :acked && "bg-warning ring-4 ring-warning/25",
-        @status == :resolved && "bg-base-content/25"
+        "status-light",
+        @status == :open && "status-light-open",
+        @status == :acked && "status-light-acked",
+        @status == :resolved && "status-light-resolved"
       ]} />
       <span class="sr-only">{@label}</span>
     </span>
@@ -31,30 +33,53 @@ defmodule MinionWeb.AlertComponents do
 
   attr :severity, :atom, required: true
 
-  def severity_badge(assigns) do
+  def severity_badge(%{severity: :critical} = assigns) do
     ~H"""
-    <span class={[
-      "badge badge-sm font-medium",
-      @severity == :critical && "badge-error badge-soft",
-      @severity == :warning && "badge-warning badge-soft",
-      @severity == :info && "badge-ghost"
-    ]}>
-      {@severity}
+    <span class="badge badge-sm gap-1 border-0 bg-base-content font-semibold text-base-100">
+      <.icon name="hero-exclamation-triangle-micro" class="size-3" /> critical
     </span>
     """
   end
 
-  attr :alert, Alert, required: true
+  def severity_badge(%{severity: :warning} = assigns) do
+    ~H"""
+    <span class="badge badge-sm border-base-content/35 bg-transparent font-medium text-base-content/80">
+      warning
+    </span>
+    """
+  end
+
+  def severity_badge(assigns) do
+    ~H"""
+    <span class="px-1 text-xs font-medium text-base-content/50">{@severity}</span>
+    """
+  end
+
+  attr :severity, :atom, required: true
   attr :class, :any, default: nil
 
-  def rule_stripe(assigns) do
+  def priority_bar(assigns) do
+    ~H"""
+    <span class={[
+      "inline-block w-1 rounded-full",
+      @severity == :critical && "bg-base-content",
+      @severity == :warning && "bg-base-content/20",
+      @severity == :info && "bg-transparent",
+      @class
+    ]} />
+    """
+  end
+
+  attr :alert, Alert, required: true
+
+  def rule_color_swatch(assigns) do
     assigns = assign(assigns, :color, rule_color(assigns.alert))
 
     ~H"""
-    <span
-      class={["inline-block w-1 rounded-full", stripe_class(@color), @class]}
-      title={@color && "Rule colour: #{@color}"}
-    />
+    <span :if={@color} class="inline-flex items-center gap-1.5 text-base-content/60">
+      <span class={["inline-block size-2.5 rounded-sm", swatch_class(@color)]} />
+      {@color}
+    </span>
     """
   end
 
@@ -63,12 +88,24 @@ defmodule MinionWeb.AlertComponents do
 
   defp rule_color(_alert), do: nil
 
-  defp stripe_class("red"), do: "bg-error"
-  defp stripe_class(color) when color in ["amber", "orange", "yellow"], do: "bg-warning"
-  defp stripe_class("green"), do: "bg-success"
-  defp stripe_class("blue"), do: "bg-info"
-  defp stripe_class(color) when color in ["gray", "grey"], do: "bg-base-content/30"
-  defp stripe_class(_none), do: "bg-transparent"
+  defp swatch_class("red"), do: "bg-error"
+  defp swatch_class(color) when color in ["amber", "orange", "yellow"], do: "bg-warning"
+  defp swatch_class("green"), do: "bg-success"
+  defp swatch_class("blue"), do: "bg-info"
+  defp swatch_class(_other), do: "bg-base-content/30"
+
+  attr :live, :boolean, required: true
+  attr :id, :string, default: "live-indicator"
+
+  def live_light(assigns) do
+    ~H"""
+    <span
+      id={@id}
+      class={["status-light", if(@live, do: "status-light-live", else: "status-light-offline")]}
+      data-live={to_string(@live)}
+    />
+    """
+  end
 
   attr :id, :string, required: true
   attr :at, DateTime, required: true
