@@ -115,21 +115,26 @@ if config_env() == :prod do
       IO.puts(:stderr, "warning: SMTP_RELAY is not set, so email deliveries will fail")
 
     relay ->
-      username = System.get_env("SMTP_USERNAME")
+      credentials =
+        case System.get_env("SMTP_USERNAME") do
+          nil ->
+            [auth: :never]
 
-      config :minion, Minion.Mailer,
-        adapter: Swoosh.Adapters.SMTP,
-        relay: relay,
-        port: String.to_integer(System.get_env("SMTP_PORT", "587")),
-        username: username,
-        password: System.get_env("SMTP_PASSWORD"),
-        ssl: System.get_env("SMTP_SSL") in ~w(true 1),
-        tls:
-          if(System.get_env("SMTP_TLS", "if_available") == "always",
-            do: :always,
-            else: :if_available
-          ),
-        auth: if(username, do: :always, else: :never)
+          username ->
+            [auth: :always, username: username, password: System.get_env("SMTP_PASSWORD")]
+        end
+
+      tls = if System.get_env("SMTP_TLS") == "always", do: :always, else: :if_available
+
+      config :minion,
+             Minion.Mailer,
+             [
+               adapter: Swoosh.Adapters.SMTP,
+               relay: relay,
+               port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+               ssl: System.get_env("SMTP_SSL") in ~w(true 1),
+               tls: tls
+             ] ++ credentials
   end
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
