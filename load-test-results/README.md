@@ -43,6 +43,23 @@ Ten events per request:
 - Trade-off: at low rates end-to-end latency is higher than unbatched (p50 44 ms vs 17 ms at
   2,000/s), from the 10 ms batch window and larger transactions.
 
+## Two clustered instances and a crash
+
+Two production instances on the same machine, started as named Erlang nodes with
+`CLUSTER_NODES=minion1@host,minion2@host` (ports 4000 and 4001, pool 30 each):
+
+- They connect automatically (`GET /metrics` lists the other node), and the Kafka consumer group
+  splits the 24 partitions 12 / 12.
+- PubSub works across them: a listener on each instance received all 300 alert broadcasts for 300
+  events, although each instance processed only its half of the partitions.
+- Crash test: 4,000 events/s sent to minion1 for 40 s; minion2 killed with `kill -9` after 10 s.
+  Kafka kept its partitions assigned for its 30 s session timeout (backlog grew to ~60,000), then
+  moved them to minion1, which drained the backlog in ~4 s. Ingest never failed (3,999/s accepted,
+  zero errors).
+- No events lost: 143,994 DISK_FULL events sent, 144,020 counted. The 26 extra are events minion2
+  processed just before dying but had not yet committed in Kafka, so minion1 processed them again
+  (at-least-once delivery; a counter can be slightly high after a crash, an alert is never lost).
+
 ## Before batching: throughput ceiling by number of pipeline processors
 
 | Processors / DB pool | Comfortable at | Ceiling (processed/s) | e2e p50 / p99 at 4,000/s | Backlog drain rate |
