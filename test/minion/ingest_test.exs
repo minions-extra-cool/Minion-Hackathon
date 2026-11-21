@@ -5,7 +5,7 @@ defmodule Minion.IngestTest do
 
   alias Minion.Ingest
 
-  describe "envelope/3" do
+  describe "envelope/4" do
     test "wraps the payload untouched with our own fields" do
       payload = %{"type" => "DISK_FULL", "host" => "web-1"}
 
@@ -16,6 +16,11 @@ defmodule Minion.IngestTest do
 
       assert {:ok, _} = Ecto.UUID.cast(envelope["id"])
       assert {:ok, _, 0} = DateTime.from_iso8601(envelope["received_at"])
+      refute Map.has_key?(envelope, "team")
+    end
+
+    test "names the sending team when there is one" do
+      assert %{"team" => "ops"} = Ingest.envelope("ops-monitor", "http", %{}, team: "ops")
     end
   end
 

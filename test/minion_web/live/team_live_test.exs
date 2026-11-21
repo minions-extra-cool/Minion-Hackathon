@@ -95,4 +95,32 @@ defmodule MinionWeb.TeamLiveTest do
     assert [%{team_id: team_id}] = Enum.filter(Accounts.list_people(), &(&1.name == "Zofia"))
     assert team_id == team.id
   end
+
+  describe "webhook key" do
+    test "a team without a key is told posts are refused", %{conn: conn, team: team} do
+      {:ok, view, _html} = live(conn, ~p"/teams/#{team.id}")
+
+      assert has_element?(view, "#ingest-key-missing")
+      assert has_element?(view, "#generate-ingest-key", "Generate key")
+    end
+
+    test "generating shows the key once, and it works for ingest", %{conn: conn, team: team} do
+      {:ok, view, _html} = live(conn, ~p"/teams/#{team.id}")
+
+      view |> element("#generate-ingest-key") |> render_click()
+
+      [key] =
+        Regex.run(~r/mk_[\w-]{32}/, view |> element("#new-ingest-key-value") |> render())
+
+      assert Accounts.team_for_ingest_key(key).id == team.id
+
+      {:ok, view, html} = live(conn, ~p"/teams/#{team.id}")
+      refute html =~ key
+      assert has_element?(view, "#ingest-key-status", "…" <> String.slice(key, -4, 4))
+      assert has_element?(view, "#generate-ingest-key[data-confirm]", "Generate a new key")
+
+      view |> element("#generate-ingest-key") |> render_click()
+      assert Accounts.team_for_ingest_key(key) == nil
+    end
+  end
 end

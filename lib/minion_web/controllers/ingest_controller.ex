@@ -1,11 +1,44 @@
 defmodule MinionWeb.IngestController do
   use MinionWeb, :controller
 
-  alias Minion.Ingest
+  alias Minion.{Accounts, Ingest}
 
   @max_body_bytes 1_000_000
 
   def create(conn, %{"source" => source}) do
+    conn = fetch_query_params(conn)
+
+    case conn |> ingest_key() |> authenticate() do
+      {:ok, team} -> read_and_publish(conn, source, team)
+      {:error, message} -> unauthorized(conn, message)
+    end
+  end
+
+  defp ingest_key(conn) do
+    bearer =
+      Enum.find_value(get_req_header(conn, "authorization"), fn header ->
+        case String.split(header, " ", parts: 2) do
+          [scheme, key] -> if String.downcase(scheme) == "bearer", do: String.trim(key)
+          _ -> nil
+        end
+      end)
+
+    bearer || List.first(get_req_header(conn, "x-minion-key")) || conn.query_params["key"]
+  end
+
+  defp authenticate(key) when key in [nil, ""],
+    do:
+      {:error,
+       "missing team key: send Authorization: Bearer <key>, an X-Minion-Key header, or ?key=<key>"}
+
+  defp authenticate(key) do
+    case Accounts.team_for_ingest_key(key) do
+      nil -> {:error, "unknown team key"}
+      team -> {:ok, team}
+    end
+  end
+
+  defp read_and_publish(conn, source, team) do
     case Plug.Conn.read_body(conn, length: @max_body_bytes) do
       {:ok, "", conn} ->
         error(conn, 400, "empty body")
@@ -14,7 +47,7 @@ defmodule MinionWeb.IngestController do
         body
         |> Ingest.decode()
         |> List.wrap()
-        |> Enum.map(&Ingest.envelope(source, "http", &1))
+        |> Enum.map(&Ingest.envelope(source, "http", &1, team: team.name))
         |> accept(conn)
 
       {:more, _partial, conn} ->
@@ -34,6 +67,12 @@ defmodule MinionWeb.IngestController do
       {:error, _reason} ->
         error(conn, 503, "event bus unavailable, retry later")
     end
+  end
+
+  defp unauthorized(conn, message) do
+    conn
+    |> put_resp_header("www-authenticate", ~s(Bearer realm="minion ingest"))
+    |> error(401, message)
   end
 
   defp error(conn, status, message), do: conn |> put_status(status) |> json(%{error: message})

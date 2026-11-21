@@ -6,6 +6,9 @@ defmodule Minion.Accounts.Team do
   schema "teams" do
     field :name, :string
     field :auto_resolve_after, :map, default: %{}
+    field :ingest_key_hash, :binary, redact: true
+    field :ingest_key_hint, :string
+    field :ingest_key_created_at, :utc_datetime_usec
     belongs_to :oncall_person, Person
     has_many :members, Person
     timestamps()

@@ -2,13 +2,14 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:4000}"
+INGEST_KEY="${MINION_INGEST_KEY:-minion-dev-ops-key}"
 
 sql() {
   docker compose exec -T postgres psql -q -U postgres -d minion_dev -tA -c "$1"
 }
 
 post() {
-  curl -fsS -o /dev/null -X POST "$BASE_URL/ingest/$1" -H 'content-type: application/json' -d "$2"
+  curl -fsS -o /dev/null -X POST "$BASE_URL/ingest/$1" -H "Authorization: Bearer $INGEST_KEY" -H 'content-type: application/json' -d "$2"
 }
 
 created="$(sql "
