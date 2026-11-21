@@ -96,7 +96,8 @@ defmodule Minion.Delivery do
     |> Map.fetch!(:hour)
   end
 
-  defp schedule(alert, person, channel) do
+  @spec schedule(Alert.t(), Person.t(), Delivery.channel()) :: Delivery.t()
+  def schedule(alert, person, channel) do
     delivery =
       %Delivery{alert_id: alert.id, person_id: person.id, channel: channel}
       |> Repo.insert!()
@@ -104,5 +105,11 @@ defmodule Minion.Delivery do
     %{"delivery_id" => delivery.id}
     |> Minion.Delivery.Worker.new(queue: to_string(channel))
     |> Oban.insert!()
+
+    delivery
   end
+
+  @spec topic(Alert.t()) :: String.t()
+  def topic(%Alert{owner_type: owner_type, owner_id: owner_id}),
+    do: "alerts:#{owner_type}:#{owner_id}"
 end

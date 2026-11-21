@@ -4,6 +4,9 @@ defmodule Minion.Delivery.Delivery do
   alias Minion.Accounts.Person
   alias Minion.Alerts.Alert
 
+  @type t :: %__MODULE__{}
+  @type channel :: :email | :sms | :phone
+
   schema "deliveries" do
     field :channel, Ecto.Enum, values: [:email, :sms, :phone]
     field :status, Ecto.Enum, values: [:pending, :delivered, :failed], default: :pending
