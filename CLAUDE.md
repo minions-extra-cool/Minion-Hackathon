@@ -50,7 +50,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 ```
 
 - `conditions` nodes (named this way because `when` is a reserved word in Elixir and SQL): `{"all": [...]}`, `{"any": [...]}`, or `{"field", "op", "value"}`. Fields are dot paths into the envelope.
-- `notify[].channels` is optional: when set, those recipients get exactly these channels (`email`, `sms`, `phone`); when absent, each person's preferences decide. A person reached by several entries gets the union. The editor's "Send by" sets the same channels on every entry.
+- `notify[].channels` is optional: when set, those recipients get exactly these channels (any registered channel: `email`, `sms`, `phone`, `discord`); when absent, each person's preferences decide. A person reached by several entries gets the union. The editor's "Send by" sets the same channels on every entry.
 - Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `matches` (`*` wildcard), `exists`.
 - Matching semantics (`Minion.Rules.Matcher`): text comparisons ignore case; numbers compare by value even when either side is a string (`"500"` equals `500`); a missing field makes the condition false, including `neq`; an unknown operator or malformed node is false, never an error. Paths can index lists (`payload.errors.0.code`).
 - Templates (`Minion.Rules.Template`): `{{payload.host}}` is replaced by the value at that path; missing values render as empty text, objects as JSON.
@@ -66,7 +66,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Teams UI:** `/teams` (`MinionWeb.TeamsLive`) explains what a team is (it owns rules and their alerts; rules notify the team, a person, or its on-call person; members choose their channels; quiet info/warning alerts may auto-resolve) and lists each team's members, on-call person, auto-resolve times and rule count, with a form to create a team. `/teams/:id` (`MinionWeb.TeamLive`) edits name, on-call person and `auto_resolve_after` (entered in minutes, empty for never), lists members with their critical-alert summary and the team's rules, and adds a person, then opens their profile. After resolving, the dialog asks "How did you fix it?" and stores the answer with `Minion.Alerts.save_resolution_note/2`, which broadcasts `{:alert, :updated, %Alert{}}`.
 
-**Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
+**Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (a registered channel: `email|sms|phone|discord`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 
 **Preferences** (`people.preferences`, jsonb). For each severity, the first entry whose `hours` contain the current hour wins; an entry without `hours` always applies. The UI feed always shows the alert, so an empty list means "UI only". `hours: [from, to]` are whole UTC hours, `from` included and `to` excluded (`[8, 20]` is 08:00–19:59 UTC); a window with `from > to`, like `[22, 6]`, wraps past midnight.
 
@@ -101,6 +101,8 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 **Delivery retries:** `Minion.Delivery.Worker` makes up to 4 attempts, 5s, 15s and 60s apart, keeping the delivery `pending` with `attempts` and `last_error` updated. After the last attempt, or at once for `:no_email_address` / `:no_phone_number`, the delivery is `failed`; a failed SMS or phone delivery falls back to one email delivery for that person. Every change is broadcast on the alert's topic as `{:delivery, %Delivery{}}`. A delivery job orphaned by a node that died mid-send is put back in the queue after 2 minutes (Oban Lifeline `rescue_after`), so it may rarely be sent twice but is never left pending.
 
 **Fake SMS/phone gateway:** `Minion.FakeGateway`, shown at `/gateway`. The SMS and phone channels post to `POST /fake-gateway/messages` (the app's own `/fake-gateway/messages` on whatever `PORT` it runs on; `SMS_GATEWAY_URL` points it elsewhere); `PUT /fake-gateway/status {"down": true}` makes it answer 503. A real provider replaces `Minion.Channels.Gateway`.
+
+**Discord:** a real channel (`Minion.Channels.Discord`). Each person may set `people.discord_webhook_url` on their profile; `Person.changeset/2` only accepts `https://discord.com/api/webhooks/<id>/<token>` (also `discordapp.com`, `canary.`/`ptb.`), the field is redacted from `inspect`, and the profile never sends the saved URL back to the browser (a blank field keeps it; "Remove" clears it). A delivery posts one embed: `[SEVERITY] title`, link to the alert, body, the rule's `present.fields`, and the runbook as "What to do", coloured by severity, with `allowed_mentions` empty so event text cannot ping `@everyone`. No webhook fails at once (`:no_discord_webhook`) and falls back to email; other failures retry like any channel.
 
 ## Code layout
 

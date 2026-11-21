@@ -58,6 +58,8 @@ config :minion, Minion.Channels.Gateway,
   url: "http://fake-gateway.test/messages",
   req_options: [plug: {Req.Test, Minion.Channels.Gateway}]
 
+config :minion, Minion.Channels.Discord, req_options: [plug: {Req.Test, Minion.Channels.Discord}]
+
 config :minion, :gemini,
   api_key: "test-key",
   model: "gemini-test",

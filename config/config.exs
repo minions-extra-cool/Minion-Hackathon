@@ -39,7 +39,8 @@ config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Local
 channels = [
   email: Minion.Channels.Email,
   sms: Minion.Channels.Sms,
-  phone: Minion.Channels.Phone
+  phone: Minion.Channels.Phone,
+  discord: Minion.Channels.Discord
 ]
 
 config :minion, :channels, channels

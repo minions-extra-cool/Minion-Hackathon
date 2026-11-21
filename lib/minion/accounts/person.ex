@@ -11,6 +11,7 @@ defmodule Minion.Accounts.Person do
     field :name, :string
     field :email, :string
     field :phone, :string
+    field :discord_webhook_url, :string, redact: true
     field :preferences, :map, default: %{}
     belongs_to :team, Team
     timestamps()
@@ -21,10 +22,15 @@ defmodule Minion.Accounts.Person do
 
   def changeset(person, attrs) do
     person
-    |> cast(attrs, [:name, :email, :phone, :preferences, :team_id])
+    |> cast(attrs, [:name, :email, :phone, :discord_webhook_url, :preferences, :team_id])
     |> validate_required([:name])
     |> validate_format(:email, ~r/^[^\s@]+@[^\s@]+$/, message: "must look like name@example.com")
     |> validate_format(:phone, ~r/^\+?[0-9 ()-]{6,}$/, message: "must be a phone number")
+    |> validate_format(
+      :discord_webhook_url,
+      ~r{^https://(?:(?:canary|ptb)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$},
+      message: "must be a Discord webhook URL (https://discord.com/api/webhooks/...)"
+    )
     |> validate_change(:preferences, &preference_errors/2)
     |> foreign_key_constraint(:team_id)
   end
