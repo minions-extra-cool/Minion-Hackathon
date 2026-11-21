@@ -12,6 +12,7 @@ defmodule Minion.Application do
       Minion.Repo,
       {DNSCluster, query: Application.get_env(:minion, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Minion.PubSub},
+      Minion.FakeGateway,
       {Oban, Application.fetch_env!(:minion, Oban)},
       # Start to serve requests, typically the last entry
       MinionWeb.Endpoint
