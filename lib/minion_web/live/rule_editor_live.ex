@@ -654,7 +654,7 @@ defmodule MinionWeb.RuleEditorLive do
           </section>
 
           <div class="flex items-center justify-between gap-4 border-t border-base-300 pt-6">
-            <label class="flex cursor-pointer items-start gap-3 text-sm">
+            <label class="flex cursor-pointer items-center gap-3 text-sm">
               <input type="hidden" name="enabled" value="false" />
               <input
                 id="rule-enabled"
@@ -662,14 +662,9 @@ defmodule MinionWeb.RuleEditorLive do
                 name="enabled"
                 value="true"
                 checked={@draft["enabled"]}
-                class="toggle toggle-sm mt-0.5"
+                class="toggle toggle-sm"
               />
-              <span>
-                <span class="font-medium">This rule is {if @draft["enabled"], do: "on", else: "off"}</span>
-                <span class="block text-xs text-base-content/50">
-                  When off, it ignores new events and raises no alerts, but keeps its settings.
-                </span>
-              </span>
+              <span class="font-medium">This rule is {if @draft["enabled"], do: "on", else: "off"}</span>
             </label>
             <button id="save-rule" type="submit" class="btn btn-primary">Save rule</button>
           </div>
@@ -697,9 +692,6 @@ defmodule MinionWeb.RuleEditorLive do
             >{@test_text}</textarea>
           </.form>
 
-          <div :if={is_nil(@test_env)} class="text-sm text-base-content/50">
-            Paste an event to see which conditions it meets.
-          </div>
           <div
             :if={@test_env}
             id="test-result"

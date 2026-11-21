@@ -21,7 +21,6 @@ defmodule MinionWeb.TeamLiveTest do
     {:ok, view, _html} = live(conn, ~p"/teams")
 
     assert has_element?(view, "#nav-teams")
-    assert has_element?(view, "#teams-explainer", "A team owns rules")
     assert has_element?(view, "#team-#{team.id}", "Anna, Piotr")
     assert has_element?(view, "#team-#{team.id}", "On call: nobody")
     assert has_element?(view, "#team-#{team.id}", "warning after 4 hours quiet")

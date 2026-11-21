@@ -67,10 +67,6 @@ defmodule MinionWeb.UnmatchedLive do
     <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:dashboard}>
       <.feed_header active={:unmatched} />
 
-      <p class="text-sm text-base-content/60">
-        Events no enabled rule matched, grouped by source and shape. Turn any of them into alerts with a rule.
-      </p>
-
       <div class="overflow-x-auto border border-base-300 bg-base-100">
         <table id="unmatched-table" class="table table-sm">
           <thead>
@@ -144,10 +140,7 @@ defmodule MinionWeb.UnmatchedLive do
           <h2 id="dismiss-dialog-title" class="text-lg font-semibold tracking-tight">
             Dismiss {@dismissing.label}?
           </h2>
-          <p class="mt-3 text-sm text-base-content/60">
-            It comes back if a matching event arrives again.
-          </p>
-          <div class="mt-7 flex justify-end gap-3">
+          <div class="mt-6 flex justify-end gap-3">
             <button
               id="dismiss-cancel"
               type="button"

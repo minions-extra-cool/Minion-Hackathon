@@ -239,9 +239,6 @@ defmodule MinionWeb.PersonLive do
                 Remove
               </button>
             </p>
-            <p id="discord-help" class="-mt-1 text-xs text-base-content/50">
-              Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.
-            </p>
           </div>
         </section>
 
@@ -250,9 +247,6 @@ defmodule MinionWeb.PersonLive do
             <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
               How to reach you
             </h2>
-            <p class="mt-1 max-w-2xl text-sm text-base-content/60">
-              For each severity, the first line that covers the current hour is used.
-            </p>
           </div>
 
           <div
