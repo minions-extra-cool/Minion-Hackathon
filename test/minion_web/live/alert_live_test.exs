@@ -110,12 +110,13 @@ defmodule MinionWeb.AlertLiveTest do
     } do
       {:ok, _} =
         Minion.Runbooks.save_runbook(%Minion.Runbooks.Runbook{rule_id: rule.id}, %{
-          body: "1. Clear /var/log on {{payload.host}}"
+          body: "1. Clear /var/log on **{{payload.host}}**"
         })
 
       {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
 
-      assert has_element?(view, "#runbook-body", "1. Clear /var/log on web-1")
+      assert has_element?(view, "#runbook-body ol li strong", "web-1")
+      assert has_element?(view, "#runbook-body li", "Clear /var/log on")
       assert has_element?(view, "#runbook-edit", "Edit runbook")
     end
 

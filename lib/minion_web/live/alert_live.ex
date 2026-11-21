@@ -358,12 +358,13 @@ defmodule MinionWeb.AlertLive do
           <.runbook_link alert={@alert} runbook={@runbook} />
         </span>
       </div>
-      <p
+      <div
         :if={not Runbooks.blank?(@runbook)}
         id="runbook-body"
-        class="mt-3 whitespace-pre-line text-sm leading-relaxed"
-        phx-no-format
-      >{Runbooks.render(@runbook, @alert.sample_event)}</p>
+        class="mt-3 space-y-3 text-sm leading-relaxed"
+      >
+        {MinionWeb.Markdown.to_html(Runbooks.render(@runbook, @alert.sample_event))}
+      </div>
       <p
         :if={Runbooks.blank?(@runbook)}
         id="runbook-missing"

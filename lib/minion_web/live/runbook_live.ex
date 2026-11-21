@@ -104,8 +104,13 @@ defmodule MinionWeb.RunbookLive do
             placeholder="1. Check free space on {{payload.host}}\n2. Clear /var/log if it is over 80%\n3. If it fills again within an hour, page the on-call person"
           />
           <p class="mt-2 text-xs text-base-content/55">
-            Write it however your team does: numbered steps, Markdown, free text or a wiki link.
-            <code class="font-mono">{"{{payload.host}}"}</code>
+            Write it however your team does: steps, free text or a wiki link. Lines starting with
+            <code class="font-mono">1.</code>
+            or <code class="font-mono">-</code>
+            become lists; <code class="font-mono">**bold**</code>,
+            <code class="font-mono">__italic__</code>
+            and <code class="font-mono">`code`</code>
+            work too. <code class="font-mono">{"{{payload.host}}"}</code>
             is replaced by the value from the alert's event.
           </p>
           <div class="mt-6 flex justify-end gap-3">
@@ -124,7 +129,9 @@ defmodule MinionWeb.RunbookLive do
           </h2>
           <div class="mt-2 min-h-24 border border-base-300 bg-base-200 p-4 text-sm">
             <p :if={String.trim(@body) == ""} class="text-base-content/50">Nothing written yet.</p>
-            <p id="runbook-preview" class="whitespace-pre-line" phx-no-format>{preview(assigns)}</p>
+            <div id="runbook-preview" class="space-y-3">
+              {MinionWeb.Markdown.to_html(preview(assigns))}
+            </div>
           </div>
         </section>
       </div>
