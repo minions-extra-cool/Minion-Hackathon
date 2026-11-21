@@ -43,6 +43,27 @@ defmodule MinionWeb.RuleEditorLiveTest do
     assert rule.present["title"] == "Payments down in {{payload.region}}"
   end
 
+  test "a rule can always send by chosen channels instead of preferences", %{
+    conn: conn,
+    team: team
+  } do
+    {:ok, view, _html} = live(conn, ~p"/rules/new")
+    fill_basic_rule(view)
+
+    view
+    |> form("#rule-form", %{"notify" => ["oncall:#{team.id}"], "send_by" => "fixed"})
+    |> render_change()
+
+    view |> form("#rule-form", %{"channels" => ["sms", "phone"]}) |> render_change()
+
+    assert {:error, {:live_redirect, %{to: "/rules"}}} =
+             view |> form("#rule-form") |> render_submit()
+
+    assert Repo.get_by!(Rule, name: "Payments down").notify == [
+             %{"type" => "oncall", "id" => team.id, "channels" => ["sms", "phone"]}
+           ]
+  end
+
   test "explains what is missing instead of saving an incomplete rule", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/rules/new")
 

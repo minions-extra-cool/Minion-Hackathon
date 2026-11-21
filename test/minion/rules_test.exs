@@ -72,9 +72,33 @@ defmodule Minion.RulesTest do
                errors(%{attrs | "conditions" => empty_in})
     end
 
-    test "checks grouping and notify entries", %{attrs: attrs} do
+    test "checks grouping and notify entries", %{attrs: attrs, team: team} do
       assert %{dedup: [_]} = errors(%{attrs | "dedup" => %{"quiet_sec" => -5}})
       assert %{notify: [_]} = errors(%{attrs | "notify" => [%{"type" => "pager"}]})
+
+      for bad <- [[], ["pager"], "sms"] do
+        entry = %{"type" => "team", "id" => team.id, "channels" => bad}
+
+        assert %{notify: ["channels must be one or more of email, sms and phone"]} =
+                 errors(%{attrs | "notify" => [entry]})
+      end
+
+      ok = %{"type" => "team", "id" => team.id, "channels" => ["sms", "phone"]}
+      refute Map.has_key?(errors(%{attrs | "notify" => [ok]}), :notify)
+    end
+
+    test "the draft keeps channels chosen by the rule", %{attrs: attrs, team: team} do
+      fixed = [%{"type" => "team", "id" => team.id, "channels" => ["sms", "phone"]}]
+      {:ok, rule} = Rules.create_rule(%{attrs | "notify" => fixed})
+
+      draft = Draft.from_rule(rule)
+
+      assert {draft["send_by"], draft["channels"]} == {"fixed", ["sms", "phone"]}
+      assert Draft.to_attrs(draft)["notify"] == fixed
+
+      assert Draft.to_attrs(%{draft | "send_by" => "preferences"})["notify"] == [
+               %{"type" => "team", "id" => team.id}
+             ]
     end
   end
 

@@ -19,7 +19,9 @@ defmodule Minion.Rules.Draft do
       "body" => "",
       "fields" => "",
       "color" => "",
-      "notify" => []
+      "notify" => [],
+      "send_by" => "preferences",
+      "channels" => []
     }
   end
 
@@ -42,6 +44,7 @@ defmodule Minion.Rules.Draft do
       "color" => text(present["color"]),
       "notify" => for(%{"type" => type, "id" => id} <- rule.notify || [], do: "#{type}:#{id}")
     }
+    |> Map.merge(send_by(rule.notify || []))
   end
 
   defp list_text(items) when is_list(items),
@@ -90,7 +93,11 @@ defmodule Minion.Rules.Draft do
       "notify" =>
         Enum.map(draft["notify"], fn ref ->
           {type, id} = split_ref(ref)
-          %{"type" => type, "id" => id}
+          entry = %{"type" => type, "id" => id}
+
+          if draft["send_by"] == "fixed",
+            do: Map.put(entry, "channels", draft["channels"]),
+            else: entry
         end)
     }
   end
@@ -99,7 +106,10 @@ defmodule Minion.Rules.Draft do
   def put_params(draft, params) do
     draft
     |> Map.merge(
-      Map.take(params, ~w(name owner severity dedup_key quiet_min title body fields color))
+      Map.take(
+        params,
+        ~w(name owner severity dedup_key quiet_min title body fields color send_by)
+      )
     )
     |> put_enabled(params)
     |> put_notify(params)
@@ -109,10 +119,33 @@ defmodule Minion.Rules.Draft do
   defp put_enabled(draft, %{"enabled" => value}), do: Map.put(draft, "enabled", value == "true")
   defp put_enabled(draft, _params), do: draft
 
-  defp put_notify(draft, %{"notify" => refs}) when is_list(refs),
-    do: Map.put(draft, "notify", Enum.reject(refs, &(&1 == "")))
+  defp put_notify(draft, params) do
+    draft
+    |> put_list(params, "notify")
+    |> put_list(params, "channels")
+  end
 
-  defp put_notify(draft, _params), do: draft
+  defp put_list(draft, params, key) do
+    case params do
+      %{^key => values} when is_list(values) ->
+        Map.put(draft, key, Enum.reject(values, &(&1 == "")))
+
+      _ ->
+        draft
+    end
+  end
+
+  defp send_by([]), do: %{"send_by" => "preferences", "channels" => []}
+
+  defp send_by(entries) do
+    case entries |> Enum.map(&Map.get(&1, "channels")) |> Enum.uniq() do
+      [channels] when is_list(channels) and channels != [] ->
+        %{"send_by" => "fixed", "channels" => channels}
+
+      _ ->
+        %{"send_by" => "preferences", "channels" => []}
+    end
+  end
 
   defp put_conditions(draft, params) do
     tree =

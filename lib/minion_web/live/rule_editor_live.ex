@@ -496,9 +496,49 @@ defmodule MinionWeb.RuleEditorLive do
                 {option.label}
               </label>
             </div>
-            <p class="mt-2 text-xs text-base-content/50">
-              Each person gets it on the channels they chose for this severity. Nobody ticked means the feed only.
-            </p>
+            <p class="mt-2 text-xs text-base-content/50">Nobody ticked means the feed only.</p>
+
+            <div id="rule-send-by" class="mt-5 space-y-2">
+              <p class="text-sm">Send by</p>
+              <label class="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  id="send-by-preferences"
+                  type="radio"
+                  name="send_by"
+                  value="preferences"
+                  checked={@draft["send_by"] != "fixed"}
+                  class="radio radio-sm"
+                /> Each person's own channel preferences for this severity
+              </label>
+              <label class="flex cursor-pointer flex-wrap items-center gap-2 text-sm">
+                <input
+                  id="send-by-fixed"
+                  type="radio"
+                  name="send_by"
+                  value="fixed"
+                  checked={@draft["send_by"] == "fixed"}
+                  class="radio radio-sm"
+                /> Always, regardless of preferences:
+                <input type="hidden" name="channels[]" value="" />
+                <span
+                  :for={
+                    {channel, label} <- [{"email", "Email"}, {"sms", "SMS"}, {"phone", "Phone call"}]
+                  }
+                  class="inline-flex items-center gap-1.5"
+                >
+                  <input
+                    id={"channel-#{channel}"}
+                    type="checkbox"
+                    name="channels[]"
+                    value={channel}
+                    checked={channel in @draft["channels"]}
+                    disabled={@draft["send_by"] != "fixed"}
+                    class="checkbox checkbox-sm"
+                  />
+                  {label}
+                </span>
+              </label>
+            </div>
           </section>
 
           <div class="flex items-center justify-between gap-4 border-t border-base-300 pt-6">

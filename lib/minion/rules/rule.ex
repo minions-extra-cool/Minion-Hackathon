@@ -127,18 +127,31 @@ defmodule Minion.Rules.Rule do
     end
   end
 
+  @channels ["email", "sms", "phone"]
+
   defp validate_notify(:notify, entries) do
-    if Enum.all?(
-         entries,
-         &match?(
-           %{"type" => type, "id" => id}
-           when type in ["person", "team", "oncall"] and is_binary(id),
-           &1
-         )
-       ) do
-      []
-    else
-      [notify: "each entry needs a type (person, team or oncall) and an id"]
+    cond do
+      not Enum.all?(entries, &valid_recipient?/1) ->
+        [notify: "each entry needs a type (person, team or oncall) and an id"]
+
+      not Enum.all?(entries, &valid_channels?(Map.get(&1, "channels"))) ->
+        [notify: "channels must be one or more of email, sms and phone"]
+
+      true ->
+        []
     end
   end
+
+  defp valid_recipient?(%{"type" => type, "id" => id})
+       when type in ["person", "team", "oncall"] and is_binary(id),
+       do: true
+
+  defp valid_recipient?(_entry), do: false
+
+  defp valid_channels?(nil), do: true
+
+  defp valid_channels?(channels) when is_list(channels) and channels != [],
+    do: Enum.all?(channels, &(&1 in @channels))
+
+  defp valid_channels?(_channels), do: false
 end

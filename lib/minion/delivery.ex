@@ -15,11 +15,14 @@ defmodule Minion.Delivery do
   @spec dispatch(Alert.t(), DateTime.t()) :: :ok
   def dispatch(%Alert{} = alert, now \\ DateTime.utc_now()) do
     alert
-    |> people_to_notify()
-    |> Enum.uniq_by(& &1.id)
-    |> Enum.each(fn person ->
-      person
-      |> channels_for(alert.severity, now)
+    |> recipients()
+    |> Enum.group_by(fn {person, _channels} -> person.id end)
+    |> Enum.each(fn {_person_id, [{person, _} | _] = entries} ->
+      entries
+      |> Enum.flat_map(fn {_person, rule_channels} ->
+        rule_channels || channels_for(person, alert.severity, now)
+      end)
+      |> Enum.uniq()
       |> Enum.each(fn channel -> schedule(alert, person, channel) end)
     end)
 
@@ -28,12 +31,21 @@ defmodule Minion.Delivery do
 
   def hours_zone, do: @preference_hours_zone
 
-  defp people_to_notify(%Alert{rule_id: nil}), do: []
+  defp recipients(%Alert{rule_id: nil}), do: []
 
-  defp people_to_notify(%Alert{rule_id: rule_id}) do
+  defp recipients(%Alert{rule_id: rule_id}) do
     Repo.get(Rule, rule_id).notify
-    |> Enum.flat_map(&people_for_notify_entry/1)
+    |> Enum.flat_map(fn entry ->
+      channels = rule_channels(entry)
+      entry |> people_for_notify_entry() |> Enum.map(&{&1, channels})
+    end)
   end
+
+  defp rule_channels(%{"channels" => channels}) when is_list(channels) and channels != [] do
+    channels |> Enum.map(&channel_from/1) |> Enum.filter(&(&1 in @channels)) |> Enum.uniq()
+  end
+
+  defp rule_channels(_entry), do: nil
 
   defp people_for_notify_entry(%{"type" => "person", "id" => id}) do
     person = Repo.get(Person, id)
