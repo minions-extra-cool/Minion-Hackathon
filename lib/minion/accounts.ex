@@ -20,6 +20,26 @@ defmodule Minion.Accounts do
   @spec get_person!(Ecto.UUID.t()) :: Person.t()
   def get_person!(id), do: Person |> Repo.get!(id) |> Repo.preload(:team)
 
+  @spec owner_keys(Person.t() | nil) :: [{:person | :team, Ecto.UUID.t()}]
+  def owner_keys(nil), do: []
+  def owner_keys(%Person{id: id, team_id: nil}), do: [{:person, id}]
+  def owner_keys(%Person{id: id, team_id: team_id}), do: [{:person, id}, {:team, team_id}]
+
+  @spec owned_by(Ecto.Queryable.t(), Person.t() | nil) :: Ecto.Query.t()
+  def owned_by(queryable, person) do
+    owned =
+      person
+      |> owner_keys()
+      |> Enum.reduce(dynamic(false), fn {type, id}, owned ->
+        dynamic([r], ^owned or (r.owner_type == ^type and r.owner_id == ^id))
+      end)
+
+    where(queryable, ^owned)
+  end
+
+  @spec owns?(Person.t() | nil, %{owner_type: atom(), owner_id: Ecto.UUID.t()}) :: boolean()
+  def owns?(person, %{owner_type: type, owner_id: id}), do: {type, id} in owner_keys(person)
+
   @spec change_person(Person.t(), map()) :: Ecto.Changeset.t()
   def change_person(%Person{} = person, attrs \\ %{}), do: Person.changeset(person, attrs)
 

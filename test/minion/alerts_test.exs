@@ -128,8 +128,8 @@ defmodule Minion.AlertsTest do
 
     assert Alerts.list_recent_visible(loner, 10) == []
     assert Alerts.list_recent_visible(nil, 10) == []
-    assert Alerts.visible_to?(anna_alert, anna)
-    refute Alerts.visible_to?(anna_alert, loner)
+    assert Minion.Accounts.owns?(anna, anna_alert)
+    refute Minion.Accounts.owns?(loner, anna_alert)
   end
 
   test "owner_names/0 names teams and people", %{team: team} do

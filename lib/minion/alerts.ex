@@ -1,6 +1,7 @@
 defmodule Minion.Alerts do
   import Ecto.Query
 
+  alias Minion.Accounts
   alias Minion.Accounts.{Person, Team}
   alias Minion.Alerts.Alert
   alias Minion.Delivery.Delivery
@@ -13,19 +14,11 @@ defmodule Minion.Alerts do
   @spec subscribe_visible(Person.t() | nil) :: :ok
   def subscribe_visible(person) do
     person
-    |> visible_owners()
+    |> Accounts.owner_keys()
     |> Enum.each(fn {type, id} ->
       Phoenix.PubSub.subscribe(Minion.PubSub, "alerts:#{type}:#{id}")
     end)
   end
-
-  @spec visible_to?(Alert.t(), Person.t() | nil) :: boolean()
-  def visible_to?(%Alert{owner_type: type, owner_id: id}, person),
-    do: {type, id} in visible_owners(person)
-
-  defp visible_owners(nil), do: []
-  defp visible_owners(%Person{id: id, team_id: nil}), do: [{:person, id}]
-  defp visible_owners(%Person{id: id, team_id: team_id}), do: [{:person, id}, {:team, team_id}]
 
   @spec subscribe(Alert.t()) :: :ok | {:error, term()}
   def subscribe(%Alert{} = alert), do: Phoenix.PubSub.subscribe(Minion.PubSub, topic(alert))
@@ -36,23 +29,13 @@ defmodule Minion.Alerts do
   end
 
   @spec list_recent_visible(Person.t() | nil, pos_integer()) :: [Alert.t()]
-  def list_recent_visible(nil, _limit), do: []
-
-  def list_recent_visible(%Person{id: person_id, team_id: team_id}, limit) do
-    owned_by_person = dynamic([a], a.owner_type == :person and a.owner_id == ^person_id)
-
-    owned =
-      if team_id,
-        do: dynamic([a], ^owned_by_person or (a.owner_type == :team and a.owner_id == ^team_id)),
-        else: owned_by_person
-
-    Repo.all(
-      from a in Alert,
-        where: ^owned,
-        order_by: [desc: a.last_seen],
-        limit: ^limit,
-        preload: :rule
-    )
+  def list_recent_visible(person, limit) do
+    Alert
+    |> Accounts.owned_by(person)
+    |> order_by(desc: :last_seen)
+    |> limit(^limit)
+    |> preload(:rule)
+    |> Repo.all()
   end
 
   @spec get_alert!(Ecto.UUID.t()) :: Alert.t()

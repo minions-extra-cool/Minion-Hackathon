@@ -83,7 +83,7 @@ defmodule MinionWeb.DashboardLive do
 
   @impl true
   def handle_info({:alert, _event, alert}, socket) do
-    if Alerts.visible_to?(alert, socket.assigns.current_person),
+    if Minion.Accounts.owns?(socket.assigns.current_person, alert),
       do: {:noreply, show_alert(socket, alert)},
       else: {:noreply, socket}
   end

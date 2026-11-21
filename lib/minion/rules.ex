@@ -12,6 +12,14 @@ defmodule Minion.Rules do
   @spec list_rules() :: [Rule.t()]
   def list_rules, do: Repo.all(from r in Rule, order_by: [asc: r.name, asc: r.inserted_at])
 
+  @spec list_rules_visible(Person.t() | nil) :: [Rule.t()]
+  def list_rules_visible(person) do
+    Rule
+    |> Minion.Accounts.owned_by(person)
+    |> order_by(asc: :name, asc: :inserted_at)
+    |> Repo.all()
+  end
+
   @spec get_rule!(Ecto.UUID.t()) :: Rule.t()
   def get_rule!(id), do: Repo.get!(Rule, id)
 

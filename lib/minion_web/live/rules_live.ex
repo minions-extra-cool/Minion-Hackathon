@@ -3,6 +3,7 @@ defmodule MinionWeb.RulesLive do
 
   import MinionWeb.AlertComponents
 
+  alias Minion.Accounts
   alias Minion.Rules
   alias Minion.Rules.ConditionTree
 
@@ -17,22 +18,28 @@ defmodule MinionWeb.RulesLive do
        owners: Map.new(Rules.owner_options(), fn {label, value} -> {value, label} end),
        notify_labels: Map.new(Rules.notify_options(), &{&1.value, &1.label})
      )
-     |> stream(:rules, Rules.list_rules())}
+     |> stream(:rules, Rules.list_rules_visible(socket.assigns.current_person))}
   end
 
   @impl true
   def handle_event("toggle", %{"id" => id}, socket) do
     rule = Rules.get_rule!(id)
-    {:ok, rule} = Rules.set_enabled(rule, not rule.enabled)
-    {:noreply, stream_insert(socket, :rules, rule)}
+
+    if Accounts.owns?(socket.assigns.current_person, rule) do
+      {:ok, rule} = Rules.set_enabled(rule, not rule.enabled)
+      {:noreply, stream_insert(socket, :rules, rule)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
   def handle_info({:rules_changed, id}, socket) do
-    case Rules.get_rule(id) do
-      nil -> {:noreply, stream_delete_by_dom_id(socket, :rules, "rules-#{id}")}
-      rule -> {:noreply, stream_insert(socket, :rules, rule)}
-    end
+    rule = Rules.get_rule(id)
+
+    if rule && Accounts.owns?(socket.assigns.current_person, rule),
+      do: {:noreply, stream_insert(socket, :rules, rule)},
+      else: {:noreply, stream_delete_by_dom_id(socket, :rules, "rules-#{id}")}
   end
 
   defp owner_label(owners, rule), do: owners["#{rule.owner_type}:#{rule.owner_id}"] || "unknown"
@@ -79,7 +86,11 @@ defmodule MinionWeb.RulesLive do
           <tbody id="rules" phx-update="stream">
             <tr id="rules-empty" class="hidden only:table-row">
               <td colspan="5" class="py-10 text-center text-base-content/50">
-                No rules yet. Create one to start turning events into alerts.
+                <%= if @current_person do %>
+                  No rules for you or your team yet. Create one to start turning events into alerts.
+                <% else %>
+                  Pick who you are in the top bar to see your team's rules.
+                <% end %>
               </td>
             </tr>
             <tr
