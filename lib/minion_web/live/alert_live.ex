@@ -59,6 +59,10 @@ defmodule MinionWeb.AlertLive do
 
   defp fields(_alert), do: []
 
+  defp channel_label(:sms), do: "SMS"
+  defp channel_label(:phone), do: "phone call"
+  defp channel_label(channel), do: to_string(channel)
+
   defp delivery_icon(:delivered), do: "hero-check-circle-micro"
   defp delivery_icon(:pending), do: "hero-arrow-path-micro"
   defp delivery_icon(:failed), do: "hero-x-circle-micro"
@@ -131,7 +135,15 @@ defmodule MinionWeb.AlertLive do
         </.fact>
         <.fact label="Rule">
           <span class="inline-flex flex-wrap items-center gap-3">
-            {(@alert.rule && @alert.rule.name) || "deleted rule"}
+            <.link
+              :if={@alert.rule}
+              navigate={~p"/rules/#{@alert.rule.id}"}
+              id="alert-rule-link"
+              class="underline decoration-base-content/30 hover:decoration-base-content"
+            >
+              {@alert.rule.name}
+            </.link>
+            <span :if={is_nil(@alert.rule)}>deleted rule</span>
             <.rule_color_swatch alert={@alert} />
           </span>
         </.fact>
@@ -180,7 +192,7 @@ defmodule MinionWeb.AlertLive do
                 {delivery.status}
               </span>
               <span class="font-medium">{delivery.person.name}</span>
-              <span class="text-base-content/60">by {delivery.channel}</span>
+              <span class="text-base-content/60">by {channel_label(delivery.channel)}</span>
               <span :if={delivery.attempts > 1} class="text-xs text-base-content/50">
                 {delivery.attempts} attempts
               </span>

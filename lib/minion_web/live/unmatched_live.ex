@@ -35,7 +35,10 @@ defmodule MinionWeb.UnmatchedLive do
     end
   end
 
-  defp fields_preview(%{paths: []}), do: "plain text"
+  defp fields_preview(%{paths: [], sample_event: %{"payload" => text}}) when is_binary(text),
+    do: "text: " <> String.slice(text, 0, 120)
+
+  defp fields_preview(%{paths: []}), do: "no fields"
 
   defp fields_preview(%{paths: paths}) do
     shown = paths |> Enum.map(&String.replace_prefix(&1, "payload.", "")) |> Enum.take(6)
