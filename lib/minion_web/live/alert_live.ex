@@ -362,9 +362,8 @@ defmodule MinionWeb.AlertLive do
         :if={not Runbooks.blank?(@runbook)}
         id="runbook-body"
         class="mt-3 whitespace-pre-line text-sm leading-relaxed"
-      >
-        {Runbooks.render(@runbook, @alert.sample_event)}
-      </p>
+        phx-no-format
+      >{Runbooks.render(@runbook, @alert.sample_event)}</p>
       <p
         :if={Runbooks.blank?(@runbook)}
         id="runbook-missing"

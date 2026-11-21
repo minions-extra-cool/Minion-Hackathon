@@ -122,14 +122,9 @@ defmodule MinionWeb.RunbookLive do
           <h2 id="runbook-preview-title" class="text-sm font-medium text-base-content/70">
             {if @alert, do: "As shown on #{@alert.title}", else: "Preview"}
           </h2>
-          <div
-            id="runbook-preview"
-            class="mt-2 min-h-24 whitespace-pre-line border border-base-300 bg-base-200 p-4 text-sm"
-          >
-            <span :if={String.trim(@body) == ""} class="text-base-content/50">
-              Nothing written yet.
-            </span>
-            {preview(assigns)}
+          <div class="mt-2 min-h-24 border border-base-300 bg-base-200 p-4 text-sm">
+            <p :if={String.trim(@body) == ""} class="text-base-content/50">Nothing written yet.</p>
+            <p id="runbook-preview" class="whitespace-pre-line" phx-no-format>{preview(assigns)}</p>
           </div>
         </section>
       </div>
