@@ -96,7 +96,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Pipeline failures:** Kafka acknowledges every message, so the pipeline retries inside the handler: database outages are retried until the database is back; other errors are retried 5 times and the event is then moved to the `events_dead` topic. The pipeline and rules cache do not run in tests (`config :minion, :pipeline, enabled: false`); test `Minion.Alerts.Processor` directly.
 
-**Channel adapter:** a module implementing `Minion.Channel` with `deliver(alert, person) :: :ok | {:error, term}`.
+**Channel adapter:** a module implementing `Minion.Channel`: `label/0` (shown in the UI), `deliver(alert, person) :: :ok | {:error, term}`, and optionally `permanent_errors/0` (errors that fail at once instead of retrying, e.g. a missing address). Channels are registered in one list in `config/config.exs` (`config :minion, :channels, email: ..., sms: ...`); the Oban queues, the `deliveries.channel` enum, preference and rule validation, and every channel checkbox and label read it through `Minion.Channels`. Adding a channel is its module plus one line there.
 
 **Delivery retries:** `Minion.Delivery.Worker` makes up to 4 attempts, 5s, 15s and 60s apart, keeping the delivery `pending` with `attempts` and `last_error` updated. After the last attempt, or at once for `:no_email_address` / `:no_phone_number`, the delivery is `failed`; a failed SMS or phone delivery falls back to one email delivery for that person. Every change is broadcast on the alert's topic as `{:delivery, %Delivery{}}`. A delivery job orphaned by a node that died mid-send is put back in the queue after 2 minutes (Oban Lifeline `rescue_after`), so it may rarely be sent twice but is never left pending.
 

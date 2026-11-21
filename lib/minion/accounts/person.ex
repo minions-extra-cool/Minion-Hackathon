@@ -6,7 +6,6 @@ defmodule Minion.Accounts.Person do
   @type t :: %__MODULE__{}
 
   @severities ~w(critical warning info)
-  @channels ~w(email sms phone)
 
   schema "people" do
     field :name, :string
@@ -18,7 +17,7 @@ defmodule Minion.Accounts.Person do
   end
 
   def severities, do: @severities
-  def channels, do: @channels
+  def channels, do: Minion.Channels.name_strings()
 
   def changeset(person, attrs) do
     person
@@ -45,7 +44,7 @@ defmodule Minion.Accounts.Person do
   defp preference_errors(:preferences, _other), do: [preferences: "must be a map"]
 
   defp valid_entry?(%{"channels" => channels} = entry) when is_list(channels) do
-    Enum.all?(channels, &(&1 in @channels)) and valid_hours?(Map.get(entry, "hours"))
+    Enum.all?(channels, &(&1 in channels())) and valid_hours?(Map.get(entry, "hours"))
   end
 
   defp valid_entry?(_entry), do: false

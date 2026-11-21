@@ -221,10 +221,6 @@ defmodule MinionWeb.AlertLive do
     end
   end
 
-  defp channel_label(:sms), do: "SMS"
-  defp channel_label(:phone), do: "phone call"
-  defp channel_label(channel), do: to_string(channel)
-
   defp summarize_label(%AsyncResult{loading: true}), do: "Summarising…"
   defp summarize_label(%AsyncResult{ok?: true}), do: "Regenerate summary"
   defp summarize_label(_result), do: "Summarise with Gemini"
@@ -403,7 +399,7 @@ defmodule MinionWeb.AlertLive do
                   {delivery.status}
                 </span>
                 <span class="font-medium">{delivery.person.name}</span>
-                <span class="text-base-content/60">by {channel_label(delivery.channel)}</span>
+                <span class="text-base-content/60">by {Minion.Channels.label(delivery.channel)}</span>
                 <span :if={delivery.attempts > 1} class="text-xs text-base-content/50">
                   {delivery.attempts} attempts
                 </span>

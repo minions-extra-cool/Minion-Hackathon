@@ -46,14 +46,13 @@ defmodule MinionWeb.RulesLive do
       |> Enum.join(", ")
 
     case entries |> Enum.flat_map(&List.wrap(&1["channels"])) |> Enum.uniq() do
-      [] -> who
-      channels -> "#{who} · by #{channels |> Enum.map(&channel_label/1) |> Enum.join(", ")}"
+      [] ->
+        who
+
+      channels ->
+        "#{who} · by #{channels |> Enum.map(&Minion.Channels.label/1) |> Enum.join(", ")}"
     end
   end
-
-  defp channel_label("sms"), do: "SMS"
-  defp channel_label("phone"), do: "phone call"
-  defp channel_label(channel), do: channel
 
   @impl true
   def render(assigns) do

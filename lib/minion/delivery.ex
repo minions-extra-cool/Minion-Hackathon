@@ -9,7 +9,6 @@ defmodule Minion.Delivery do
   alias Minion.Repo
   alias Minion.Rules.Rule
 
-  @channels [:email, :sms, :phone]
   @preference_hours_zone "Etc/UTC"
 
   @spec dispatch(Alert.t(), DateTime.t()) :: :ok
@@ -42,7 +41,10 @@ defmodule Minion.Delivery do
   end
 
   defp rule_channels(%{"channels" => channels}) when is_list(channels) and channels != [] do
-    channels |> Enum.map(&channel_from/1) |> Enum.filter(&(&1 in @channels)) |> Enum.uniq()
+    channels
+    |> Enum.map(&channel_from/1)
+    |> Enum.filter(&(&1 in Minion.Channels.names()))
+    |> Enum.uniq()
   end
 
   defp rule_channels(_entry), do: nil
@@ -81,7 +83,7 @@ defmodule Minion.Delivery do
       entry -> entry |> Map.get("channels", []) |> Enum.map(&channel_from/1)
     end
     |> Enum.uniq()
-    |> Enum.filter(&(&1 in @channels))
+    |> Enum.filter(&(&1 in Minion.Channels.names()))
   end
 
   defp channel_from(channel) when is_binary(channel) do

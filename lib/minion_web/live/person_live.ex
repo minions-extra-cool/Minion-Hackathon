@@ -145,13 +145,9 @@ defmodule MinionWeb.PersonLive do
   defp upcase_first(<<first::utf8, rest::binary>>), do: String.upcase(<<first::utf8>>) <> rest
 
   defp channels_text([]), do: "feed only"
-  defp channels_text(channels), do: channels |> Enum.map(&channel_label/1) |> Enum.join(" + ")
 
-  defp channel_label("sms"), do: "SMS"
-  defp channel_label("phone"), do: "phone call"
-  defp channel_label(channel), do: channel
-
-  defp checkbox_label(channel), do: channel |> channel_label() |> upcase_first()
+  defp channels_text(channels),
+    do: channels |> Enum.map(&Minion.Channels.label/1) |> Enum.join(" + ")
 
   defp severity_label(severity), do: upcase_first(severity)
 
@@ -245,7 +241,7 @@ defmodule MinionWeb.PersonLive do
                     value={channel}
                     checked={channel in entry["channels"]}
                   />
-                  {checkbox_label(channel)}
+                  {Minion.Channels.label(channel)}
                 </label>
                 <span class="mx-1 h-5 border-l border-base-300" />
                 <input type="hidden" name={"prefs[#{severity}][#{index}][limited]"} value="false" />

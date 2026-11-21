@@ -5,10 +5,10 @@ defmodule Minion.Delivery.Delivery do
   alias Minion.Alerts.Alert
 
   @type t :: %__MODULE__{}
-  @type channel :: :email | :sms | :phone
+  @type channel :: atom()
 
   schema "deliveries" do
-    field :channel, Ecto.Enum, values: [:email, :sms, :phone]
+    field :channel, Ecto.Enum, values: Minion.Channels.names()
     field :status, Ecto.Enum, values: [:pending, :delivered, :failed], default: :pending
     field :attempts, :integer, default: 0
     field :last_error, :string

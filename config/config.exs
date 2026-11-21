@@ -36,9 +36,17 @@ config :phoenix_live_view,
 # at the `config/runtime.exs`.
 config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Local
 
+channels = [
+  email: Minion.Channels.Email,
+  sms: Minion.Channels.Sms,
+  phone: Minion.Channels.Phone
+]
+
+config :minion, :channels, channels
+
 config :minion, Oban,
   repo: Minion.Repo,
-  queues: [email: 10, sms: 10, phone: 10, maintenance: 1],
+  queues: Enum.map(channels, fn {name, _module} -> {name, 10} end) ++ [maintenance: 1],
   lifeline: [rescue_after: {2, :minutes}],
   plugins: [
     {Oban.Plugins.Cron,

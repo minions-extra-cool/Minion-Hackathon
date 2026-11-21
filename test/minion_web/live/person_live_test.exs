@@ -40,7 +40,7 @@ defmodule MinionWeb.PersonLiveTest do
     assert has_element?(
              view,
              "#prefs-critical-summary",
-             "SMS from 08:00 to 20:00 UTC, otherwise email"
+             "SMS from 08:00 to 20:00 UTC, otherwise Email"
            )
 
     assert has_element?(view, "#prefs-info-summary", "Shown in the feed only")
@@ -76,7 +76,7 @@ defmodule MinionWeb.PersonLiveTest do
     assert has_element?(
              view,
              "#prefs-critical-summary",
-             "Email + phone call, otherwise SMS from 08:00 to 20:00 UTC"
+             "Email + Phone call, otherwise SMS from 08:00 to 20:00 UTC"
            )
 
     view
