@@ -1,0 +1,150 @@
+{
+  "run": "mwpv4r51",
+  "base_url": "http://localhost:4000",
+  "batch": 1,
+  "stage_seconds": 20,
+  "max_in_flight": 512,
+  "stages": [
+    {
+      "target_events_per_s": 2000,
+      "accepted_events_per_s": 1999,
+      "processed_events_per_s": 1998,
+      "http_ms": {
+        "p50": 2,
+        "p99": 4.2
+      },
+      "statuses": {
+        "202": 39996
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 199.2,
+        "p50": 17.3,
+        "p95": 31.1,
+        "p99": 43.7
+      },
+      "lag_at_end": 0,
+      "vm": {
+        "processes": 917,
+        "run_queue": 0,
+        "schedulers": 12,
+        "memory_mb": 107
+      }
+    },
+    {
+      "target_events_per_s": 4000,
+      "accepted_events_per_s": 3999,
+      "processed_events_per_s": 3995,
+      "http_ms": {
+        "p50": 2.9,
+        "p99": 8.1
+      },
+      "statuses": {
+        "202": 79995
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 96.9,
+        "p50": 24.3,
+        "p95": 37.7,
+        "p99": 48.2
+      },
+      "lag_at_end": 0,
+      "vm": {
+        "processes": 958,
+        "run_queue": 0,
+        "schedulers": 12,
+        "memory_mb": 122
+      }
+    },
+    {
+      "target_events_per_s": 6000,
+      "accepted_events_per_s": 5995,
+      "processed_events_per_s": 5442,
+      "http_ms": {
+        "p50": 4,
+        "p99": 53.8
+      },
+      "statuses": {
+        "202": 119957
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 3035.8,
+        "p50": 1041.7,
+        "p95": 2274,
+        "p99": 2902.3
+      },
+      "lag_at_end": 10296,
+      "vm": {
+        "processes": 1188,
+        "run_queue": 0,
+        "schedulers": 12,
+        "memory_mb": 172
+      }
+    },
+    {
+      "target_events_per_s": 8000,
+      "accepted_events_per_s": 7994,
+      "processed_events_per_s": 5210,
+      "http_ms": {
+        "p50": 4.6,
+        "p99": 43.6
+      },
+      "statuses": {
+        "202": 159984
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 9340.2,
+        "p50": 4963.8,
+        "p95": 8085.6,
+        "p99": 8914.4
+      },
+      "lag_at_end": 65146,
+      "vm": {
+        "processes": 1222,
+        "run_queue": 3,
+        "schedulers": 12,
+        "memory_mb": 202
+      }
+    },
+    {
+      "target_events_per_s": 10000,
+      "accepted_events_per_s": 9992,
+      "processed_events_per_s": 4946,
+      "http_ms": {
+        "p50": 7.1,
+        "p99": 56.2
+      },
+      "statuses": {
+        "202": 199945
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 17358.6,
+        "p50": 12543.4,
+        "p95": 16809.4,
+        "p99": 16809.4
+      },
+      "lag_at_end": 165026,
+      "vm": {
+        "processes": 1321,
+        "run_queue": 2,
+        "schedulers": 12,
+        "memory_mb": 238
+      }
+    }
+  ],
+  "drained": {
+    "seconds": 26.8,
+    "lag": 0,
+    "processed_while_draining": 164904,
+    "pipeline_latency_ms": {
+      "max": 26269.6,
+      "p50": 21453.5,
+      "p95": 24835.1,
+      "p99": 26076.8
+    }
+  }
+}

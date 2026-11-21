@@ -1,0 +1,46 @@
+{
+  "run": "mwpv812w",
+  "base_url": "http://localhost:4000",
+  "batch": 1,
+  "stage_seconds": 20,
+  "max_in_flight": 512,
+  "stages": [
+    {
+      "target_events_per_s": 7000,
+      "accepted_events_per_s": 6998,
+      "processed_events_per_s": 5195,
+      "http_ms": {
+        "p50": 4.3,
+        "p99": 65.3
+      },
+      "statuses": {
+        "202": 139964
+      },
+      "client_saturated": true,
+      "pipeline_latency_ms": {
+        "max": 5561.5,
+        "p50": 2902.3,
+        "p95": 4963.8,
+        "p99": 5472.6
+      },
+      "lag_at_end": 35301,
+      "vm": {
+        "processes": 1205,
+        "run_queue": 0,
+        "schedulers": 12,
+        "memory_mb": 195
+      }
+    }
+  ],
+  "drained": {
+    "seconds": 6.7,
+    "lag": 0,
+    "processed_while_draining": 35183,
+    "pipeline_latency_ms": {
+      "max": 6497.8,
+      "p50": 5472.6,
+      "p95": 6033.6,
+      "p99": 6652
+    }
+  }
+}
