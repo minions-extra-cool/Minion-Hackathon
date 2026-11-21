@@ -2,6 +2,7 @@ defmodule Minion.DeliveryTest do
   use Minion.DataCase
 
   import Ecto.Query
+  import ExUnit.CaptureLog
 
   alias Minion.Accounts.{Person, Team}
   alias Minion.Alerts.Alert
@@ -159,6 +160,48 @@ defmodule Minion.DeliveryTest do
     test "an empty list or a missing severity means UI only" do
       assert channels_at(@anna, :info, ~U[2026-11-20 10:00:00Z]) == []
       assert channels_at(%{}, :critical, ~U[2026-11-20 10:00:00Z]) == []
+    end
+
+    test "malformed preferences are skipped with a warning instead of failing the alert" do
+      at_ten = ~U[2026-11-20 10:00:00Z]
+      bad_hours = %{"channels" => ["sms"], "hours" => "8-20"}
+
+      log =
+        capture_log(fn ->
+          assert channels_at(%{"critical" => ["sms", "phone"]}, :critical, at_ten) == []
+          assert channels_at(%{"critical" => %{"channels" => ["sms"]}}, :critical, at_ten) == []
+
+          assert channels_at(
+                   %{"critical" => ["sms", %{"channels" => ["email"]}]},
+                   :critical,
+                   at_ten
+                 ) ==
+                   [:email]
+        end)
+
+      assert log =~ "Ignoring malformed critical preferences for Anna"
+
+      assert channels_at(
+               %{"critical" => [bad_hours, %{"channels" => ["email"]}]},
+               :critical,
+               at_ten
+             ) ==
+               [:email]
+    end
+
+    test "one person's malformed preferences do not stop the others being notified" do
+      team = insert_team()
+      insert_person(team, "Broken", %{"warning" => ["email"]})
+      anna = insert_person(team, "Anna")
+      rule = insert_rule(team)
+
+      log =
+        capture_log(fn ->
+          assert :ok = Dispatch.dispatch(insert_alert(rule), ~U[2026-11-20 10:00:00Z])
+        end)
+
+      assert delivered_person_ids() == [anna.id]
+      assert log =~ "Ignoring malformed warning preferences for Broken"
     end
   end
 

@@ -1,4 +1,6 @@
 defmodule Minion.Delivery do
+  require Logger
+
   import Ecto.Query
 
   alias Minion.Accounts.{Person, Team}
@@ -60,6 +62,7 @@ defmodule Minion.Delivery do
   defp channels_for(person, severity, now) do
     person.preferences
     |> Map.get(to_string(severity), [])
+    |> valid_entries(person, severity)
     |> Enum.find(&applies?(&1, now))
     |> case do
       nil -> []
@@ -77,15 +80,25 @@ defmodule Minion.Delivery do
 
   defp channel_from(channel) when is_atom(channel), do: channel
 
-  defp applies?(%{"hours" => [from, to]}, now) when from <= to do
-    hour = hour_in_zone(now)
-    from <= hour and hour < to
+  defp valid_entries(entries, person, severity) do
+    {valid, invalid} =
+      if is_list(entries), do: Enum.split_with(entries, &is_map/1), else: {[], [entries]}
+
+    if invalid != [] do
+      Logger.warning(
+        "Ignoring malformed #{severity} preferences for #{person.name} (#{person.id}): #{inspect(invalid)}"
+      )
+    end
+
+    valid
   end
 
-  defp applies?(%{"hours" => [from, to]}, now) do
+  defp applies?(%{"hours" => [from, to]}, now) when is_integer(from) and is_integer(to) do
     hour = hour_in_zone(now)
-    hour >= from or hour < to
+    if from <= to, do: from <= hour and hour < to, else: hour >= from or hour < to
   end
+
+  defp applies?(%{"hours" => _malformed}, _now), do: false
 
   defp applies?(%{} = _entry, _now), do: true
 
