@@ -1,0 +1,130 @@
+# Minion
+
+Alert routing service: ingests events from many sources, matches them against team rules, deduplicates them into alerts, and delivers each alert on the recipient's preferred channel. The task statement is in `task.txt`.
+
+Phoenix and Elixir usage rules are in @AGENTS.md. Follow them.
+
+## Working rules
+
+- **No comments.** Write code that explains itself through names. Add a comment only when the code cannot say why it does something, which should be about 1% of the time. No `@moduledoc` or `@doc` boilerplate.
+- **Feature branches, frequent local commits.** Never work on `main`. Commit each small working step with a message that says what changed, so a teammate can read the branch history and follow what was built.
+- **No mistakes.** Run `mix precommit` (compile with warnings as errors, format, tests) before every commit, and do not commit if it fails. Never say something works unless you ran it and saw it work.
+- **Schema changes are announced.** Tell the other pair before adding or changing a migration.
+- **Explain what you wrote.** The team is new to Elixir. After each change, summarise it in plain words.
+
+## Pipeline
+
+```
+source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► fingerprint ─► create/update alert
+                                                                                        │ new alert only
+                                                                                        ▼
+                                                    Minion.Delivery.dispatch(alert) ─► deliveries + Oban jobs ─► channel adapters
+```
+
+- An adapter never interprets the payload. It wraps the original message in an envelope and publishes it.
+- Rules are data in Postgres, not code. An unseen schema must need a new rule and nothing else.
+- A notification is sent on the first event of an alert. Repeats only increment the counter.
+- The alert, its delivery rows and their Oban jobs are written in one transaction.
+
+## Contracts
+
+**Event envelope** (the message on the `events` topic):
+
+```json
+{"id": "uuid", "source": "payments-api", "source_type": "http|kafka|log",
+ "received_at": "ISO-8601", "team": "ops", "payload": {}}
+```
+
+**Rule** (`rules` table; `conditions`, `dedup`, `present`, `notify` are jsonb):
+
+```json
+{
+  "name": "Disk full",
+  "owner_type": "team", "owner_id": "uuid",
+  "severity": "info|warning|critical",
+  "conditions": {"all": [{"field": "payload.type", "op": "eq", "value": "DISK_FULL"}]},
+  "dedup": {"key": ["payload.host"], "quiet_sec": 600},
+  "present": {"title": "Disk full on {{payload.host}}", "body": "", "fields": [], "color": "amber"},
+  "notify": [{"type": "team|person|oncall", "id": "uuid", "channels": ["sms", "phone"]}]
+}
+```
+
+- `conditions` nodes (named this way because `when` is a reserved word in Elixir and SQL): `{"all": [...]}`, `{"any": [...]}`, or `{"field", "op", "value"}`. Fields are dot paths into the envelope.
+- `notify[].channels` is optional: when set, those recipients get exactly these channels (any registered channel: `email`, `sms`, `phone`, `discord`); when absent, each person's preferences decide. A person reached by several entries gets the union. The editor's "Send by" sets the same channels on every entry.
+- Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `matches` (`*` wildcard), `exists`.
+- Matching semantics (`Minion.Rules.Matcher`): text comparisons ignore case; numbers compare by value even when either side is a string (`"500"` equals `500`); a missing field makes the condition false, including `neq`; an unknown operator or malformed node is false, never an error. Paths can index lists (`payload.errors.0.code`).
+- Templates (`Minion.Rules.Template`): `{{payload.host}}` is replaced by the value at that path; missing values render as empty text, objects as JSON.
+- Fingerprint: hash of the rule id plus the values at `dedup.key`.
+- Fingerprint uniqueness: at most one *active* alert per fingerprint, i.e. not resolved and not closed (`alerts_active_fingerprint_index`).
+- `quiet_sec`: an active alert with no events for this long is **closed**: `closed_at` is set, its status is unchanged, and it stops absorbing events. The next event with that fingerprint opens a new alert and notifies again. A rule without a numeric `quiet_sec` never closes its alerts.
+- Auto-resolve is a **team** setting, `teams.auto_resolve_after`, e.g. `{"info": 3600, "warning": 14400}`: an unresolved alert of that severity with no events for that many seconds is resolved. Critical alerts never auto-resolve; a person must resolve them. Alerts owned by a person use that person's team setting.
+- `Minion.Alerts.QuietSweepWorker` runs both checks every 30 seconds.
+
+**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `closed_at`, `title`, `body`, `sample_event`, `acked_by_id`, `acked_at`, `resolved_by_id`, `resolved_at`, `resolution_note`. `resolved_at` without `resolved_by_id` means the quiet sweep auto-resolved it.
+
+**Who acts:** there is no login yet. The top bar's person menu (`Layouts.person_menu/1`) posts to `/session/person` (`MinionWeb.SessionController`), which keeps `person_id` in the session and returns to the page you were on. Every LiveView runs in `live_session :default` with `MinionWeb.CurrentPerson`, which assigns `@current_person` (or nil) and `@people`; pass both to `Layouts.app`. On the alert page, Acknowledge and Resolve stay disabled until someone is picked. `/people/:id` (`MinionWeb.PersonLive`, "Profile and notifications" in the menu) edits contact details and preferences: per severity an ordered list of lines (channels, optional UTC hours), summarised in plain words. A line without hours is saved without an `hours` key, because `Delivery` treats any other `hours` value as malformed. `Person.changeset/2` validates the preference shape, email and phone.
+
+**Teams UI:** `/teams` (`MinionWeb.TeamsLive`) explains what a team is (it owns rules and their alerts; rules notify the team, a person, or its on-call person; members choose their channels; quiet info/warning alerts may auto-resolve) and lists each team's members, on-call person, auto-resolve times and rule count, with a form to create a team. `/teams/:id` (`MinionWeb.TeamLive`) edits name, on-call person and `auto_resolve_after` (entered in minutes, empty for never), lists members with their critical-alert summary and the team's rules, and adds a person, then opens their profile. After resolving, the dialog asks "How did you fix it?" and stores the answer with `Minion.Alerts.save_resolution_note/2`, which broadcasts `{:alert, :updated, %Alert{}}`.
+
+**Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (a registered channel: `email|sms|phone|discord`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
+
+**Preferences** (`people.preferences`, jsonb). For each severity, the first entry whose `hours` contain the current hour wins; an entry without `hours` always applies. The UI feed always shows the alert, so an empty list means "UI only". `hours: [from, to]` are whole UTC hours, `from` included and `to` excluded (`[8, 20]` is 08:00–19:59 UTC); a window with `from > to`, like `[22, 6]`, wraps past midnight.
+
+```json
+{"critical": [{"channels": ["sms"], "hours": [8, 20]}, {"channels": ["email"]}],
+ "warning": [{"channels": ["email"]}],
+ "info": []}
+```
+
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`; acknowledging or resolving in the UI (`Minion.Alerts.acknowledge/2`, `resolve/2`, each taking the acting person, one conditional UPDATE so the first click wins) broadcasts `{:alert, :acked | :resolved, %Alert{}}`.
+
+**UI:** Phoenix LiveView with daisyUI. The `minion` theme in `assets/css/app.css` is the only theme: warm off-white `base-100`, off-black `base-content`, banana-yellow `primary`, sharp corners (all radii 0; only status lights are round). The font is Lato, self-hosted in `priv/static/fonts` so browsers never call a third-party CDN. The feed's search (`/?q=`) uses `Minion.Fuzzy`: each query word must appear, letters in order, inside one word of the alert's title, body, source, owner, rule, severity or status; case and accents are ignored. In the feed, one light per alert carries both dimensions (`MinionWeb.AlertComponents.status_light/1`): its colour is the severity (red critical, orange warning, grey-blue info) and its shape is the state (solid and glowing when open, a glowing ring when acknowledged, a small grey dot when resolved). Its tooltip and screen-reader label spell both out. Nothing in the rows blinks. The alert page also lists severity as text. A rule's own `present.color` is shown as a thin bar before the title in the feed (`MinionWeb.AlertComponents.rule_color_mark/1`, with a tooltip and screen-reader label) and as a labelled swatch on the alert page; it never replaces the severity light. `/` is the live feed (`MinionWeb.DashboardLive`), `/alerts/:id` the alert detail (`MinionWeb.AlertLive`). The feed table (`MinionWeb.AlertTable`) sorts by any column header (`?sort=<column>&dir=asc|desc` in the URL; default last event, newest first) and keeps rows sorted as live updates arrive (it holds the shown rows and moves an updated row to its place). The Columns menu shows, hides and reorders columns (Alert always stays; Rule, Severity, Status and First event are optional); the layout is per browser, in `localStorage` under `minion:alert-columns`, pushed to the server by the `.ColumnLayout` hook. The `layout` assign name is reserved by Phoenix, so the dashboard calls it `columns`.
+
+**Unmatched events:** an event no enabled rule matches is recorded by `Minion.Unmatched.record/1` (called from the processor) as a *shape*: one `unmatched_shapes` row per source plus set of payload field paths, upserted with a counter and the latest event as sample, broadcast as `{:unmatched, shape}` on the `unmatched` topic. The quiet sweep deletes shapes not seen for 24 hours. `/unmatched` (the feed's second tab, `MinionWeb.UnmatchedLive`) lists them; "Create rule" opens `/rules/new?from_unmatched=<id>` with `Unmatched.suggested_draft/2` (conditions on the source and an identifying field such as `type` or `alertname`) and the sample in the test panel.
+
+**AI:** providers implement `Minion.AI.Provider` (`generate(prompt, opts)`, opts `json:` and `max_output_tokens:`); `Minion.AI.client/0` returns the configured one (`config :minion, :ai_client`, Gemini by default, `Minion.AI.StubClient` in tests). On a new rule, "Draft with AI" (`Minion.AI.RuleDraft.suggest/4`) sends the test panel's event, the rule contract and the allowed notify targets, asks for JSON, keeps the editor's owner, drops notify targets that do not exist, validates with `Rule.changeset/2` and loads the result into the editor, saying whether it matches the test event. Nothing is saved until the person clicks Save.
+
+**Rules UI:** `/rules` lists rules with a one-line summary (`ConditionTree.describe/1`) and an on/off switch (`MinionWeb.RulesLive`). `/rules/new` and `/rules/:id` are the editor (`MinionWeb.RuleEditorLive`): a visual condition builder (one level of nested groups), severity, title/body templates, grouping and notify, plus a JSON mode for the whole rule in the contract shape above. `Minion.Rules.Draft` converts between a rule and the editor's working copy; condition inputs are named by tree path (`c[0-1][field]`, `g[root]`). A test panel evaluates a pasted or recent event with the real matcher and shows ✓/✗ per condition. `/rules/new?from_alert=<id>` preloads that alert's event ("Create a rule from this event" on the alert page). Saving validates the rule (`Rule.changeset/2`) and broadcasts `{:rules_changed, id}` on the `rules` topic, which makes `Minion.Rules.Cache` reload at once.
+
+**Runbooks:** `runbooks` table, at most one per rule (`rule_id` unique, deleted with the rule); `body` is free text in whatever format the team uses (steps, Markdown, a wiki link). `{{payload.x}}` placeholders are filled from the alert's first event by `Minion.Runbooks.render/2`, the same templating as titles. The result is shown through `MinionWeb.Markdown.to_html/1`, a small Markdown subset shared with the alert page's AI summary: lines starting `1.`/`1)` or `-`/`*`/`+` become lists, `#`–`######` plus a space headings, `>` quotes, `---` rules, ```` ``` ```` fenced code, `**bold**`, `__italic__` or `*italic*`, `` `code` ``, `[label](url)` links (other than http, https, mailto and relative links, only the label is kept); other lines keep their line breaks; HTML is always escaped. The alert page shows it as "What to do" while the alert is unresolved, with its last-updated time: on wide screens it sits right of the details and is capped at their height (it is absolutely positioned in its grid cell, so only the details set the row height); when it overflows, the `.RunbookOverflow` hook sets `data-overflowing`, which shows a fade and an Expand button that opens it in a large scrollable dialog. Alert emails carry the rendered runbook as "What to do" and a link to the alert page (`MinionWeb.Links.alert_url/1`); SMS messages carry that link. `/rules/:id/runbook` (`MinionWeb.RunbookLive`) edits it; with `?from_alert=<id>` it previews against that alert and returns there. Resolving is a three-step dialog with a progress bar: 1. confirm; 2. "How did you fix it?" (optional note, Skip or Next); 3. only when the alert has a rule, the runbook: with a note, `Minion.AI.RunbookSuggestion.suggest/4` folds it into the current runbook (keeping its format and `{{payload.x}}` placeholders) and shows the result in an editable box to save, tweak or skip; without a note or if the AI fails, it links to the runbook editor. The foreign key sits on `runbooks`, so several runbooks per rule (e.g. one per condition) only need the unique index dropped.
+
+**Dispatch contract:** `Minion.Delivery.dispatch(alert)` runs inside the pipeline's transaction. Return `:ok`, or `{:error, reason}` (or raise) to roll back the alert; the pipeline then retries the event.
+
+**HTTP ingest:** `POST /ingest/<source>` (`MinionWeb.IngestController`) requires a team key in the `Authorization: Bearer <key>` header and nowhere else (a key in a URL ends up in access logs and history); it is checked before the body is read, and a missing or unknown key gets 401 with `WWW-Authenticate: Bearer`. Accepted events carry the team name as the envelope's optional `team` field (Kafka sources leave it out), so rules can match on it. `teams` stores only the key's SHA-256 (`ingest_key_hash`, unique) and its last four characters; `/teams/:id` generates or rotates the key and shows it once. Seeds give `ops` the dev key `minion-dev-ops-key` (or `MINION_INGEST_KEY`), which `scripts/*` and `scripts/load_test.mjs` send by default.
+
+**Kafka sources:** external topics are listed in `config :minion, :kafka_sources` as `%{topic: ..., source: ...}`; adding one is a config line. `Minion.Ingest.KafkaSource` wraps each message (JSON, or the raw string) in an envelope with `source_type: "kafka"` and publishes batches to `events`, retrying until the publish succeeds. A new subscription starts at the topic's latest offset, so history is not replayed. Snappy, lz4 and gzip compressed batches are supported; zstd is not.
+
+**Pipeline batching:** processors only decode and match (`Processor.candidates/2`); matched events are batched by fingerprint (`PIPELINE_BATCHERS`, `PIPELINE_BATCH_SIZE`, 10 ms timeout), repeats are folded into one counter, and each batch is one multi-row upsert plus dispatch for its new alerts in a single transaction (`Processor.process_batch/2`). Events no rule matches go to their own `:unmatched` batches and through `Processor.process/3` one at a time, which records them. A batch that fails for a reason other than a database outage falls back to processing its events one by one.
+
+**Pipeline failures:** Kafka acknowledges every message, so the pipeline retries inside the handler: database outages are retried until the database is back; other errors are retried 5 times and the event is then moved to the `events_dead` topic. The pipeline and rules cache do not run in tests (`config :minion, :pipeline, enabled: false`); test `Minion.Alerts.Processor` directly.
+
+**Channel adapter:** a module implementing `Minion.Channel`: `label/0` (shown in the UI), `deliver(alert, person) :: :ok | {:error, term}`, and optionally `permanent_errors/0` (errors that fail at once instead of retrying, e.g. a missing address). Channels are registered in one list in `config/config.exs` (`config :minion, :channels, email: ..., sms: ...`); the Oban queues, the `deliveries.channel` enum, preference and rule validation, and every channel checkbox and label read it through `Minion.Channels`. Adding a channel is its module plus one line there.
+
+**Delivery retries:** `Minion.Delivery.Worker` makes up to 4 attempts, 5s, 15s and 60s apart, keeping the delivery `pending` with `attempts` and `last_error` updated. After the last attempt, or at once for `:no_email_address` / `:no_phone_number`, the delivery is `failed`; a failed SMS or phone delivery falls back to one email delivery for that person. Every change is broadcast on the alert's topic as `{:delivery, %Delivery{}}`. A delivery job orphaned by a node that died mid-send is put back in the queue after 2 minutes (Oban Lifeline `rescue_after`), so it may rarely be sent twice but is never left pending.
+
+**Fake SMS/phone gateway:** `Minion.FakeGateway`, shown at `/gateway`. The SMS and phone channels post to `POST /fake-gateway/messages` (the app's own `/fake-gateway/messages` on whatever `PORT` it runs on; `SMS_GATEWAY_URL` points it elsewhere); `PUT /fake-gateway/status {"down": true}` makes it answer 503. A real provider replaces `Minion.Channels.Gateway`.
+
+**Discord:** a real channel (`Minion.Channels.Discord`). Each person may set `people.discord_webhook_url` on their profile; `Person.changeset/2` only accepts `https://discord.com/api/webhooks/<id>/<token>` (also `discordapp.com`, `canary.`/`ptb.`), the field is redacted from `inspect`, and the profile never sends the saved URL back to the browser (a blank field keeps it; "Remove" clears it). A delivery posts one embed: `[SEVERITY] title`, link to the alert, body, the rule's `present.fields`, and the runbook as "What to do", coloured by severity, with `allowed_mentions` empty so event text cannot ping `@everyone`. No webhook fails at once (`:no_discord_webhook`) and falls back to email; other failures retry like any channel.
+
+## Code layout
+
+| Directory | Owner | Holds |
+|---|---|---|
+| `lib/minion/accounts/` | shared | `Team`, `Person` |
+| `lib/minion/ingest/` | Pair A | source adapters, `Minion.Ingest.publish/1` |
+| `lib/minion/kafka.ex`, `lib/minion/kafka/` | Pair A | Kafka client, topic setup |
+| `lib/minion/rules/` | Pair A | `Rule`, the matcher, the rules cache |
+| `lib/minion/alerts/` | Pair A | `Alert`, the pipeline consumer, the quiet sweep |
+| `lib/minion/delivery/` | Pair B | `Delivery`, `Minion.Delivery.dispatch/1`, workers |
+| `lib/minion/channels/` | Pair B | `Minion.Channel` and one module per channel |
+| `lib/minion_web/live/`, `lib/minion_web/components/` | shared | LiveView pages, layout, alert components |
+
+The seam between the pairs is `Minion.Delivery.dispatch(alert)`. Pair A calls it for every new alert; Pair B implements it.
+
+## Running locally
+
+```
+docker compose up -d     # Postgres :5433, Redpanda :19092 (console :8080), Mailpit :8025
+mix setup                # deps, database, migrations, seeds
+mix phx.server           # http://localhost:4000
+```

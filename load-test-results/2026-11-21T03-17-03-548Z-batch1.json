@@ -1,0 +1,46 @@
+{
+  "run": "mwpu6jpj",
+  "base_url": "http://localhost:4000",
+  "batch": 1,
+  "stage_seconds": 20,
+  "max_in_flight": 512,
+  "stages": [
+    {
+      "target_events_per_s": 6000,
+      "accepted_events_per_s": 5998,
+      "processed_events_per_s": 3858,
+      "http_ms": {
+        "p50": 3.2,
+        "p99": 28.3
+      },
+      "statuses": {
+        "202": 119974
+      },
+      "client_saturated": false,
+      "pipeline_latency_ms": {
+        "max": 7685.5,
+        "p50": 3527.7,
+        "p95": 6984.6,
+        "p99": 7333.9
+      },
+      "lag_at_end": 42301,
+      "vm": {
+        "processes": 996,
+        "run_queue": 0,
+        "schedulers": 12,
+        "memory_mb": 168
+      }
+    }
+  ],
+  "drained": {
+    "seconds": 10.1,
+    "lag": 0,
+    "processed_while_draining": 42205,
+    "pipeline_latency_ms": {
+      "max": 9346.7,
+      "p50": 8489.9,
+      "p95": 8914.4,
+      "p99": 9360.1
+    }
+  }
+}
