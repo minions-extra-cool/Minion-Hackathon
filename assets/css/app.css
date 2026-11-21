@@ -154,3 +154,19 @@ html { scrollbar-gutter: stable; }
   height: 0.4375rem;
   background: color-mix(in oklch, var(--color-base-content) 22%, transparent);
 }
+
+.logo-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #home-logo:hover .logo-eye {
+    animation: logo-blink 280ms ease-in-out 1;
+  }
+}
+
+@keyframes logo-blink {
+  0%, 100% { transform: scaleY(1); }
+  45%, 55% { transform: scaleY(0.08); }
+}
