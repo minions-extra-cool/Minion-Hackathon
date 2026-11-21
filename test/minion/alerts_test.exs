@@ -110,6 +110,28 @@ defmodule Minion.AlertsTest do
     assert {first_id, second_id} == {newer.id, older.id}
   end
 
+  test "list_recent_visible/2 keeps alerts owned by the person or their team", %{
+    team: team,
+    rule: rule
+  } do
+    anna = person_fixture(team, "Anna")
+    loner = Repo.insert!(%Minion.Accounts.Person{name: "Loner"})
+    team_alert = alert_fixture(rule)
+
+    anna_alert =
+      alert_fixture(rule_fixture(team_fixture(), %{owner_type: :person, owner_id: anna.id}))
+
+    _other_team = alert_fixture(rule_fixture(team_fixture()))
+
+    assert anna |> Alerts.list_recent_visible(10) |> Enum.map(& &1.id) |> Enum.sort() ==
+             Enum.sort([team_alert.id, anna_alert.id])
+
+    assert Alerts.list_recent_visible(loner, 10) == []
+    assert Alerts.list_recent_visible(nil, 10) == []
+    assert Alerts.visible_to?(anna_alert, anna)
+    refute Alerts.visible_to?(anna_alert, loner)
+  end
+
   test "owner_names/0 names teams and people", %{team: team} do
     anna = person_fixture(team, "Anna")
     names = Alerts.owner_names()

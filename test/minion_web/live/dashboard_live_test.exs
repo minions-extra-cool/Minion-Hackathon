@@ -6,9 +6,60 @@ defmodule MinionWeb.DashboardLiveTest do
 
   alias Minion.Alerts.Processor
 
-  setup do
+  setup %{conn: conn} do
     team = team_fixture()
-    %{team: team, rule: rule_fixture(team)}
+    person = person_fixture(team)
+
+    %{
+      conn: Plug.Test.init_test_session(conn, %{"person_id" => person.id}),
+      team: team,
+      person: person,
+      rule: rule_fixture(team)
+    }
+  end
+
+  describe "who sees what" do
+    test "shows alerts of your team's rules and your own rules, not other teams'", %{
+      conn: conn,
+      rule: rule,
+      person: person
+    } do
+      mine = alert_fixture(rule, %{title: "Team alert"})
+      own_rule = rule_fixture(team_fixture(), %{owner_type: :person, owner_id: person.id})
+      personal = alert_fixture(own_rule, %{title: "Personal alert"})
+      other = alert_fixture(rule_fixture(team_fixture()), %{title: "Someone else's"})
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#alerts-#{mine.id}")
+      assert has_element?(view, "#alerts-#{personal.id}")
+      refute has_element?(view, "#alerts-#{other.id}")
+    end
+
+    test "other teams' alerts do not show up live, and search cannot find them", %{conn: conn} do
+      other_rule = rule_fixture(team_fixture())
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      event =
+        Minion.Ingest.envelope("ops-monitor", "http", %{"type" => "DISK_FULL", "host" => "x-1"})
+
+      {:ok, [{:created, hidden}]} =
+        Processor.process(event, [other_rule], dispatch: fn _ -> :ok end)
+
+      refute has_element?(view, "#alerts-#{hidden.id}")
+
+      {:ok, view, _html} = live(conn, ~p"/?q=x-1")
+      refute has_element?(view, "#alerts-#{hidden.id}")
+    end
+
+    test "nobody picked sees no alerts and is asked to pick", %{rule: rule} do
+      alert = alert_fixture(rule)
+
+      {:ok, view, _html} = live(build_conn(), ~p"/")
+
+      refute has_element?(view, "#alerts-#{alert.id}")
+      assert has_element?(view, "#alerts-empty", "Pick who you are")
+    end
   end
 
   test "shows an empty state when there are no alerts", %{conn: conn} do

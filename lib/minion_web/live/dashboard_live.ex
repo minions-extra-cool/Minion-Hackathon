@@ -13,7 +13,7 @@ defmodule MinionWeb.DashboardLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Alerts.subscribe_all()
+    if connected?(socket), do: Alerts.subscribe_visible(socket.assigns.current_person)
 
     {:ok,
      assign(socket,
@@ -28,7 +28,12 @@ defmodule MinionWeb.DashboardLive do
   @impl true
   def handle_params(params, _uri, socket) do
     query = params |> Map.get("q", "") |> String.trim()
-    alerts = Alerts.list_recent(if query == "", do: @shown, else: @searched)
+
+    alerts =
+      Alerts.list_recent_visible(
+        socket.assigns.current_person,
+        if(query == "", do: @shown, else: @searched)
+      )
 
     socket =
       assign(socket,
@@ -78,6 +83,14 @@ defmodule MinionWeb.DashboardLive do
 
   @impl true
   def handle_info({:alert, _event, alert}, socket) do
+    if Alerts.visible_to?(alert, socket.assigns.current_person),
+      do: {:noreply, show_alert(socket, alert)},
+      else: {:noreply, socket}
+  end
+
+  def handle_info({:delivery, _delivery}, socket), do: {:noreply, socket}
+
+  defp show_alert(socket, alert) do
     socket = socket |> remember_rule(alert.rule_id) |> remember_owner(alert)
     alert = %{alert | rule: socket.assigns.rules[alert.rule_id]}
     previous = socket.assigns.shown
@@ -95,10 +108,8 @@ defmodule MinionWeb.DashboardLive do
       |> assign(:shown, shown)
       |> drop_rows(previous, shown)
 
-    {:noreply, place_row(socket, alert, previous, shown)}
+    place_row(socket, alert, previous, shown)
   end
-
-  def handle_info({:delivery, _delivery}, socket), do: {:noreply, socket}
 
   defp show_rows(socket, alerts) do
     shown = AlertTable.sort(alerts, socket.assigns.sort, socket.assigns.owners)
@@ -262,7 +273,11 @@ defmodule MinionWeb.DashboardLive do
           <tbody id="alerts" phx-update="stream">
             <tr id="alerts-empty" class="hidden only:table-row">
               <td colspan={length(@columns) + 1} class="py-10 text-center text-base-content/50">
-                No alerts to show. New alerts appear here the moment an event matches a rule.
+                <%= if @current_person do %>
+                  No alerts for you or your team. New ones appear here the moment an event matches one of your rules.
+                <% else %>
+                  Pick who you are in the top bar to see your team's alerts.
+                <% end %>
               </td>
             </tr>
             <tr
