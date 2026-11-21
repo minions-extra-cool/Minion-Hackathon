@@ -28,6 +28,16 @@ defmodule MinionWeb.TeamLiveTest do
     assert has_element?(view, "#team-#{team.id}", "1 rule")
   end
 
+  test "a team with many members lists a few and counts the rest", %{conn: conn, team: team} do
+    for name <- ~w(Basia Celina Dawid Ewa) do
+      person_fixture(team, name)
+    end
+
+    {:ok, view, _html} = live(conn, ~p"/teams")
+
+    assert has_element?(view, "#team-#{team.id}", "Anna, Basia, Celina and 3 others")
+  end
+
   test "creating a team opens its page", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/teams")
 
