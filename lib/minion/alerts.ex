@@ -52,9 +52,6 @@ defmodule Minion.Alerts do
     |> Map.merge(Map.new(people, fn {id, name} -> {{:person, id}, name} end))
   end
 
-  @spec list_people() :: [Person.t()]
-  def list_people, do: Repo.all(from p in Person, order_by: p.name)
-
   @spec owner_name(Alert.t()) :: String.t() | nil
   def owner_name(%Alert{owner_type: :team, owner_id: id}),
     do: Repo.one(from t in Team, where: t.id == ^id, select: t.name)

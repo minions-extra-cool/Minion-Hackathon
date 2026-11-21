@@ -49,7 +49,7 @@ defmodule MinionWeb.UnmatchedLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} active={:dashboard}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:dashboard}>
       <.feed_header active={:unmatched} />
 
       <p class="text-sm text-base-content/60">

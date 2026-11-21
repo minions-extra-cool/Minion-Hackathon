@@ -21,8 +21,6 @@ defmodule MinionWeb.AlertLive do
        alert: alert,
        owner: Alerts.owner_name(alert),
        runbook: Runbooks.get_for_rule(alert.rule_id),
-       people: Alerts.list_people(),
-       acting_as: nil,
        resolve_step: nil,
        runbook_expanded: false,
        ai_summary: %AsyncResult{}
@@ -31,18 +29,13 @@ defmodule MinionWeb.AlertLive do
   end
 
   @impl true
-  def handle_event("act_as", %{"person_id" => person_id}, socket) do
-    acting_as = Enum.find(socket.assigns.people, &(&1.id == person_id))
-    {:noreply, assign(socket, :acting_as, acting_as)}
-  end
-
-  def handle_event(event, _params, %{assigns: %{acting_as: nil}} = socket)
+  def handle_event(event, _params, %{assigns: %{current_person: nil}} = socket)
       when event in ["acknowledge", "ask_resolve", "confirm_resolve"],
-      do: {:noreply, put_flash(socket, :error, "Pick who you are first.")}
+      do: {:noreply, put_flash(socket, :error, "Pick who you are first, top right.")}
 
   def handle_event("acknowledge", _params, socket) do
     socket.assigns.alert.id
-    |> Alerts.acknowledge(socket.assigns.acting_as.id)
+    |> Alerts.acknowledge(socket.assigns.current_person.id)
     |> after_transition(socket, "Someone already acknowledged or resolved this alert.")
   end
 
@@ -71,7 +64,7 @@ defmodule MinionWeb.AlertLive do
     do: {:noreply, assign(socket, :resolve_step, nil)}
 
   def handle_event("confirm_resolve", _params, socket) do
-    case Alerts.resolve(socket.assigns.alert.id, socket.assigns.acting_as.id) do
+    case Alerts.resolve(socket.assigns.alert.id, socket.assigns.current_person.id) do
       {:ok, _alert} = resolved ->
         after_transition(resolved, assign(socket, :resolve_step, :resolved), nil)
 
@@ -178,7 +171,7 @@ defmodule MinionWeb.AlertLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} active={:dashboard}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:dashboard}>
       <.link
         navigate={~p"/"}
         id="back-to-dashboard"
@@ -204,42 +197,14 @@ defmodule MinionWeb.AlertLive do
           </div>
         </div>
         <div :if={@alert.status != :resolved} class="flex flex-wrap items-center gap-2">
-          <form id="acting-as-form" phx-change="act_as" phx-hook=".ActingAs">
-            <label for="acting-as" class="sr-only">You are</label>
-            <select
-              id="acting-as"
-              name="person_id"
-              class="select select-sm w-44"
-              aria-label="You are"
-            >
-              <option value="" selected={is_nil(@acting_as)}>Who are you?</option>
-              <option
-                :for={person <- @people}
-                value={person.id}
-                selected={@acting_as && @acting_as.id == person.id}
-              >
-                {person.name}
-              </option>
-            </select>
-          </form>
-          <script :type={Phoenix.LiveView.ColocatedHook} name=".ActingAs">
-            const key = "minion:acting-as"
-            export default {
-              mounted() {
-                let stored = null
-                try { stored = localStorage.getItem(key) } catch (_error) {}
-                if (stored) this.pushEvent("act_as", {person_id: stored})
-                this.el.addEventListener("change", (event) => {
-                  try { localStorage.setItem(key, event.target.value) } catch (_error) {}
-                })
-              }
-            }
-          </script>
+          <p :if={is_nil(@current_person)} id="pick-person-hint" class="text-sm text-base-content/60">
+            Pick who you are (top right) to act on this alert.
+          </p>
           <button
             :if={@alert.status == :open}
             id="acknowledge"
             phx-click="acknowledge"
-            disabled={is_nil(@acting_as)}
+            disabled={is_nil(@current_person)}
             class="btn btn-sm btn-outline"
           >
             Acknowledge
@@ -247,7 +212,7 @@ defmodule MinionWeb.AlertLive do
           <button
             id="resolve"
             phx-click="ask_resolve"
-            disabled={is_nil(@acting_as)}
+            disabled={is_nil(@current_person)}
             class="btn btn-sm btn-primary"
           >
             Resolve

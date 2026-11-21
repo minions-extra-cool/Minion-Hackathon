@@ -6,7 +6,7 @@ defmodule MinionWeb.AlertLiveTest do
 
   alias Minion.Alerts
 
-  setup do
+  setup %{conn: conn} do
     previous_client = Application.get_env(:minion, :ai_client)
 
     on_exit(fn ->
@@ -28,12 +28,15 @@ defmodule MinionWeb.AlertLiveTest do
         }
       })
 
-    %{team: team, rule: rule, alert: alert_fixture(rule), anna: person_fixture(team, "Anna")}
-  end
+    anna = person_fixture(team, "Anna")
 
-  defp act_as(view, person) do
-    view |> form("#acting-as-form", %{person_id: person.id}) |> render_change()
-    view
+    %{
+      conn: Plug.Test.init_test_session(conn, %{"person_id" => anna.id}),
+      team: team,
+      rule: rule,
+      alert: alert_fixture(rule),
+      anna: anna
+    }
   end
 
   test "shows the alert's facts", %{conn: conn, alert: alert, team: team} do
@@ -50,12 +53,13 @@ defmodule MinionWeb.AlertLiveTest do
     assert html =~ "payload.host"
   end
 
-  test "acknowledging and resolving wait until you say who you are", %{conn: conn, alert: alert} do
-    {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+  test "acknowledging and resolving wait until you say who you are", %{alert: alert} do
+    {:ok, view, _html} = live(build_conn(), ~p"/alerts/#{alert.id}")
 
+    assert has_element?(view, "#pick-person-hint")
     assert has_element?(view, "#acknowledge[disabled]")
     assert has_element?(view, "#resolve[disabled]")
-    assert render_hook(view, "acknowledge", %{}) =~ "Pick who you are first."
+    assert render_hook(view, "acknowledge", %{}) =~ "Pick who you are first"
     assert has_element?(view, "#alert-status[data-status=open]")
   end
 
@@ -65,7 +69,6 @@ defmodule MinionWeb.AlertLiveTest do
     anna: anna
   } do
     {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-    act_as(view, anna)
 
     view |> element("#acknowledge") |> render_click()
     assert has_element?(view, "#alert-status[data-status=acked]")
@@ -82,9 +85,8 @@ defmodule MinionWeb.AlertLiveTest do
     assert Alerts.get_alert(alert.id).resolved_by_id == anna.id
   end
 
-  test "the resolution note is saved and shown", %{conn: conn, alert: alert, anna: anna} do
+  test "the resolution note is saved and shown", %{conn: conn, alert: alert} do
     {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-    act_as(view, anna)
 
     view |> element("#resolve") |> render_click()
     view |> element("#resolve-confirm") |> render_click()
@@ -110,11 +112,9 @@ defmodule MinionWeb.AlertLiveTest do
 
   test "resolving asks for confirmation and can be cancelled", %{
     conn: conn,
-    alert: alert,
-    anna: anna
+    alert: alert
   } do
     {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-    act_as(view, anna)
 
     view |> element("#resolve") |> render_click()
     assert has_element?(view, "#resolve-confirm-dialog")
@@ -139,11 +139,9 @@ defmodule MinionWeb.AlertLiveTest do
 
   test "acting on an alert someone already resolved explains what happened", %{
     conn: conn,
-    alert: alert,
-    anna: anna
+    alert: alert
   } do
     {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-    act_as(view, anna)
     Minion.Repo.update_all(Minion.Alerts.Alert, set: [status: :resolved])
 
     view |> element("#resolve") |> render_click()
@@ -222,11 +220,9 @@ defmodule MinionWeb.AlertLiveTest do
     test "resolving asks to update the runbook and links to the editor", %{
       conn: conn,
       rule: rule,
-      alert: alert,
-      anna: anna
+      alert: alert
     } do
       {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-      act_as(view, anna)
 
       view |> element("#resolve") |> render_click()
       view |> element("#resolve-confirm") |> render_click()
@@ -247,11 +243,9 @@ defmodule MinionWeb.AlertLiveTest do
 
     test "choosing done closes the dialog and keeps a link to the runbook", %{
       conn: conn,
-      alert: alert,
-      anna: anna
+      alert: alert
     } do
       {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-      act_as(view, anna)
 
       view |> element("#resolve") |> render_click()
       view |> element("#resolve-confirm") |> render_click()
@@ -264,12 +258,10 @@ defmodule MinionWeb.AlertLiveTest do
 
     test "an alert whose rule was deleted resolves without the runbook prompt", %{
       conn: conn,
-      rule: rule,
-      anna: anna
+      rule: rule
     } do
       alert = alert_fixture(rule, %{rule_id: nil})
       {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
-      act_as(view, anna)
 
       view |> element("#resolve") |> render_click()
       view |> element("#resolve-confirm") |> render_click()

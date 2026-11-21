@@ -260,7 +260,7 @@ defmodule MinionWeb.RuleEditorLive do
       )
 
     ~H"""
-    <Layouts.app flash={@flash} active={:rules}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:rules}>
       <.link
         navigate={~p"/rules"}
         id="back-to-rules"

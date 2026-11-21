@@ -36,7 +36,7 @@ defmodule MinionWeb.FakeGatewayLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people}>
       <.header>
         Fake SMS & phone gateway
         <:subtitle>

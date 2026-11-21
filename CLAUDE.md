@@ -62,7 +62,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `closed_at`, `title`, `body`, `sample_event`, `acked_by_id`, `acked_at`, `resolved_by_id`, `resolved_at`, `resolution_note`. `resolved_at` without `resolved_by_id` means the quiet sweep auto-resolved it.
 
-**Who acts:** there is no login yet. The alert page's "You are" picker (remembered in the browser's `localStorage`) names the person; Acknowledge and Resolve stay disabled until one is picked. After resolving, the dialog asks "How did you fix it?" and stores the answer with `Minion.Alerts.save_resolution_note/2`, which broadcasts `{:alert, :updated, %Alert{}}`.
+**Who acts:** there is no login yet. The top bar's person menu (`Layouts.person_menu/1`) posts to `/session/person` (`MinionWeb.SessionController`), which keeps `person_id` in the session and returns to the page you were on. Every LiveView runs in `live_session :default` with `MinionWeb.CurrentPerson`, which assigns `@current_person` (or nil) and `@people`; pass both to `Layouts.app`. On the alert page, Acknowledge and Resolve stay disabled until someone is picked. After resolving, the dialog asks "How did you fix it?" and stores the answer with `Minion.Alerts.save_resolution_note/2`, which broadcasts `{:alert, :updated, %Alert{}}`.
 
 **Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 

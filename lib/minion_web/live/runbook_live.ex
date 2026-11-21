@@ -73,7 +73,12 @@ defmodule MinionWeb.RunbookLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} active={if @alert, do: :dashboard, else: :rules}>
+    <Layouts.app
+      flash={@flash}
+      current_person={@current_person}
+      people={@people}
+      active={if @alert, do: :dashboard, else: :rules}
+    >
       <.link
         navigate={back_path(assigns)}
         id="runbook-back"

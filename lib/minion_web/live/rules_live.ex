@@ -58,7 +58,7 @@ defmodule MinionWeb.RulesLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} active={:rules}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:rules}>
       <div class="flex flex-wrap items-end justify-between gap-4">
         <h1 class="text-2xl font-semibold tracking-tight">Rules</h1>
         <.link navigate={~p"/rules/new"} id="new-rule" class="btn btn-sm btn-primary">

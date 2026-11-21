@@ -104,7 +104,7 @@ defmodule MinionWeb.DashboardLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} active={:dashboard}>
+    <Layouts.app flash={@flash} current_person={@current_person} people={@people} active={:dashboard}>
       <.feed_header active={:alerts}>
         <:actions>
           <.form for={@search_form} id="search-form" phx-change="search" phx-submit="search">
