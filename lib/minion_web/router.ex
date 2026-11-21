@@ -18,6 +18,7 @@ defmodule MinionWeb.Router do
     pipe_through :browser
 
     live "/", DashboardLive
+    live "/unmatched", UnmatchedLive
     live "/alerts/:id", AlertLive
     live "/rules", RulesLive
     live "/rules/new", RuleEditorLive, :new

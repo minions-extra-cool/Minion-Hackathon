@@ -120,6 +120,8 @@ defmodule MinionWeb.DashboardLive do
         </.form>
       </div>
 
+      <.feed_tabs active={:alerts} />
+
       <p :if={@query != ""} id="search-summary" class="text-sm text-base-content/60">
         Showing alerts matching <span class="font-semibold text-base-content">{@query}</span>
         <.link patch={~p"/"} id="clear-search" class="ml-2 underline hover:text-base-content">

@@ -27,6 +27,7 @@ defmodule Minion.Alerts.QuietSweep do
 
     Enum.each(closed, &broadcast(:closed, &1))
     Enum.each(resolved, &broadcast(:resolved, &1))
+    Minion.Unmatched.prune(now)
 
     %{closed: closed, resolved: resolved}
   end

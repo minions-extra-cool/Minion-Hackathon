@@ -1,5 +1,6 @@
 defmodule MinionWeb.AlertComponents do
   use Phoenix.Component
+  use MinionWeb, :verified_routes
 
   import MinionWeb.CoreComponents, only: [icon: 1]
 
@@ -58,6 +59,41 @@ defmodule MinionWeb.AlertComponents do
         @severity == :info && "status-light-info"
       ]} />
     </span>
+    """
+  end
+
+  attr :active, :atom, required: true, values: [:alerts, :unmatched]
+
+  def feed_tabs(assigns) do
+    ~H"""
+    <nav id="feed-tabs" class="flex gap-6 border-b border-base-300 text-sm" aria-label="Feed">
+      <.link
+        id="tab-alerts"
+        navigate={~p"/"}
+        class={[
+          "-mb-px border-b-2 pb-2 transition-colors",
+          if(@active == :alerts,
+            do: "border-base-content font-semibold",
+            else: "border-transparent text-base-content/60 hover:text-base-content"
+          )
+        ]}
+      >
+        Alerts
+      </.link>
+      <.link
+        id="tab-unmatched"
+        navigate={~p"/unmatched"}
+        class={[
+          "-mb-px border-b-2 pb-2 transition-colors",
+          if(@active == :unmatched,
+            do: "border-base-content font-semibold",
+            else: "border-transparent text-base-content/60 hover:text-base-content"
+          )
+        ]}
+      >
+        Unmatched events
+      </.link>
+    </nav>
     """
   end
 

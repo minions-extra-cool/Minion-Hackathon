@@ -21,7 +21,11 @@ defmodule MinionWeb.RuleEditorLive do
 
         :new ->
           default_owner = owner_options |> List.first() |> then(&(&1 && elem(&1, 1)))
-          {%Rule{}, Draft.new(default_owner)}
+
+          case unmatched_shape(params) do
+            nil -> {%Rule{}, Draft.new(default_owner)}
+            shape -> {%Rule{}, Minion.Unmatched.suggested_draft(shape, default_owner)}
+          end
       end
 
     {:ok,
@@ -50,7 +54,23 @@ defmodule MinionWeb.RuleEditorLive do
     Ecto.NoResultsError -> ""
   end
 
+  defp initial_test_text(%{"from_unmatched" => _} = params, _recent) do
+    case unmatched_shape(params) do
+      nil -> ""
+      shape -> Jason.encode!(shape.sample_event, pretty: true)
+    end
+  end
+
   defp initial_test_text(_params, _recent), do: ""
+
+  defp unmatched_shape(%{"from_unmatched" => id}) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> Minion.Unmatched.get(uuid)
+      :error -> nil
+    end
+  end
+
+  defp unmatched_shape(_params), do: nil
 
   @impl true
   def handle_event("change", params, socket),
