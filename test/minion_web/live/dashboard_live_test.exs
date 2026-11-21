@@ -49,7 +49,7 @@ defmodule MinionWeb.DashboardLiveTest do
     alert = alert_fixture(rule)
     {:ok, view, _html} = live(conn, ~p"/")
 
-    {:ok, _} = Minion.Alerts.acknowledge(alert.id)
+    {:ok, _} = Minion.Alerts.acknowledge(alert.id, person_fixture(team_fixture()).id)
 
     assert has_element?(view, "#alerts-#{alert.id} [data-status=acked]")
   end

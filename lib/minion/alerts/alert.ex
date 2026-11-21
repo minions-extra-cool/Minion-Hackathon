@@ -1,6 +1,7 @@
 defmodule Minion.Alerts.Alert do
   use Minion.Schema
 
+  alias Minion.Accounts.Person
   alias Minion.Delivery.Delivery
   alias Minion.Rules.Rule
 
@@ -19,7 +20,12 @@ defmodule Minion.Alerts.Alert do
     field :body, :string
     field :sample_event, :map
     field :closed_at, :utc_datetime_usec
+    field :acked_at, :utc_datetime_usec
+    field :resolved_at, :utc_datetime_usec
+    field :resolution_note, :string
     belongs_to :rule, Rule
+    belongs_to :acked_by, Person
+    belongs_to :resolved_by, Person
     has_many :deliveries, Delivery
     timestamps()
   end

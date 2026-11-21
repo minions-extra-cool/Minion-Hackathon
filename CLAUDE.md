@@ -60,7 +60,9 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 - Auto-resolve is a **team** setting, `teams.auto_resolve_after`, e.g. `{"info": 3600, "warning": 14400}`: an unresolved alert of that severity with no events for that many seconds is resolved. Critical alerts never auto-resolve; a person must resolve them. Alerts owned by a person use that person's team setting.
 - `Minion.Alerts.QuietSweepWorker` runs both checks every 30 seconds.
 
-**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `closed_at`, `title`, `body`, `sample_event`.
+**Alert** (`alerts` table): `rule_id`, `owner_type`, `owner_id`, `fingerprint`, `status` (`open|acked|resolved`), `severity`, `count`, `first_seen`, `last_seen`, `closed_at`, `title`, `body`, `sample_event`, `acked_by_id`, `acked_at`, `resolved_by_id`, `resolved_at`, `resolution_note`. `resolved_at` without `resolved_by_id` means the quiet sweep auto-resolved it.
+
+**Who acts:** there is no login yet. The alert page's "You are" picker (remembered in the browser's `localStorage`) names the person; Acknowledge and Resolve stay disabled until one is picked. After resolving, the dialog asks "How did you fix it?" and stores the answer with `Minion.Alerts.save_resolution_note/2`, which broadcasts `{:alert, :updated, %Alert{}}`.
 
 **Delivery** (`deliveries` table): `alert_id`, `person_id`, `channel` (`email|sms|phone`), `status` (`pending|delivered|failed`), `attempts`, `last_error`.
 
@@ -72,7 +74,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "info": []}
 ```
 
-**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`; acknowledging or resolving in the UI (`Minion.Alerts.acknowledge/1`, `resolve/1`, one conditional UPDATE so the first click wins) broadcasts `{:alert, :acked | :resolved, %Alert{}}`.
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits; the quiet sweep broadcasts `{:alert, :closed | :resolved, %Alert{}}`; acknowledging or resolving in the UI (`Minion.Alerts.acknowledge/2`, `resolve/2`, each taking the acting person, one conditional UPDATE so the first click wins) broadcasts `{:alert, :acked | :resolved, %Alert{}}`.
 
 **UI:** Phoenix LiveView with daisyUI. The `minion` theme in `assets/css/app.css` is the only theme: warm off-white `base-100`, off-black `base-content`, banana-yellow `primary`, sharp corners (all radii 0; only status lights are round). The font is Lato, self-hosted in `priv/static/fonts` so browsers never call a third-party CDN. The feed's search (`/?q=`) uses `Minion.Fuzzy`: each query word must appear, letters in order, inside one word of the alert's title, body, source, owner, rule, severity or status; case and accents are ignored. In the feed, one light per alert carries both dimensions (`MinionWeb.AlertComponents.status_light/1`): its colour is the severity (red critical, orange warning, grey-blue info) and its shape is the state (solid and glowing when open, a glowing ring when acknowledged, a small grey dot when resolved). Its tooltip and screen-reader label spell both out. Nothing in the rows blinks. The alert page also lists severity as text. A rule's own `present.color` is shown only as a labelled swatch on the alert page. `/` is the live feed (`MinionWeb.DashboardLive`), `/alerts/:id` the alert detail (`MinionWeb.AlertLive`).
 

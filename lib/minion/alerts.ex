@@ -52,6 +52,9 @@ defmodule Minion.Alerts do
     |> Map.merge(Map.new(people, fn {id, name} -> {{:person, id}, name} end))
   end
 
+  @spec list_people() :: [Person.t()]
+  def list_people, do: Repo.all(from p in Person, order_by: p.name)
+
   @spec owner_name(Alert.t()) :: String.t() | nil
   def owner_name(%Alert{owner_type: :team, owner_id: id}),
     do: Repo.one(from t in Team, where: t.id == ^id, select: t.name)
@@ -59,27 +62,48 @@ defmodule Minion.Alerts do
   def owner_name(%Alert{owner_type: :person, owner_id: id}),
     do: Repo.one(from p in Person, where: p.id == ^id, select: p.name)
 
-  @spec acknowledge(Ecto.UUID.t()) :: {:ok, Alert.t()} | {:error, :not_open}
-  def acknowledge(id) do
-    case transition(id, [:open], :acked) do
+  @spec acknowledge(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, Alert.t()} | {:error, :not_open}
+  def acknowledge(id, person_id) do
+    now = DateTime.utc_now()
+
+    case transition(id, [:open], :acked, acked_by_id: person_id, acked_at: now) do
       {:ok, alert} -> {:ok, alert}
       :error -> {:error, :not_open}
     end
   end
 
-  @spec resolve(Ecto.UUID.t()) :: {:ok, Alert.t()} | {:error, :already_resolved}
-  def resolve(id) do
-    case transition(id, [:open, :acked], :resolved) do
+  @spec resolve(Ecto.UUID.t(), Ecto.UUID.t()) :: {:ok, Alert.t()} | {:error, :already_resolved}
+  def resolve(id, person_id) do
+    now = DateTime.utc_now()
+
+    case transition(id, [:open, :acked], :resolved, resolved_by_id: person_id, resolved_at: now) do
       {:ok, alert} -> {:ok, alert}
       :error -> {:error, :already_resolved}
     end
   end
 
-  defp transition(id, from_statuses, to_status) do
+  @spec save_resolution_note(Ecto.UUID.t(), String.t() | nil) ::
+          {:ok, Alert.t()} | {:error, :not_resolved}
+  def save_resolution_note(id, note) do
+    note = if is_binary(note) and String.trim(note) != "", do: String.trim(note)
+
+    from(a in Alert, where: a.id == ^id and a.status == :resolved, select: a)
+    |> Repo.update_all(set: [resolution_note: note, updated_at: DateTime.utc_now()])
+    |> case do
+      {1, [alert]} ->
+        Phoenix.PubSub.broadcast(Minion.PubSub, topic(alert), {:alert, :updated, alert})
+        {:ok, alert}
+
+      {0, []} ->
+        {:error, :not_resolved}
+    end
+  end
+
+  defp transition(id, from_statuses, to_status, actor_fields) do
     now = DateTime.utc_now()
 
     from(a in Alert, where: a.id == ^id and a.status in ^from_statuses, select: a)
-    |> Repo.update_all(set: [status: to_status, updated_at: now])
+    |> Repo.update_all(set: [status: to_status, updated_at: now] ++ actor_fields)
     |> case do
       {1, [alert]} ->
         Phoenix.PubSub.broadcast(Minion.PubSub, topic(alert), {:alert, to_status, alert})
