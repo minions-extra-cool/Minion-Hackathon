@@ -89,8 +89,7 @@ defmodule Minion.Delivery.Worker do
   end
 
   defp broadcast(%Delivery{alert: alert} = delivery),
-    do:
-      Phoenix.PubSub.broadcast(Minion.PubSub, Minion.Delivery.topic(alert), {:delivery, delivery})
+    do: Phoenix.PubSub.broadcast(Minion.PubSub, Minion.Alerts.topic(alert), {:delivery, delivery})
 
   defp channel_for(:email), do: Minion.Channels.Email
   defp channel_for(:sms), do: Minion.Channels.Sms
