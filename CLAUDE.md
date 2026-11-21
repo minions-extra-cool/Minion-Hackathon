@@ -81,7 +81,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 **Channel adapter:** a module implementing `Minion.Channel` with `deliver(alert, person) :: :ok | {:error, term}`.
 
-**Delivery retries:** `Minion.Delivery.Worker` makes up to 4 attempts, 5s, 15s and 60s apart, keeping the delivery `pending` with `attempts` and `last_error` updated. After the last attempt, or at once for `:no_email_address` / `:no_phone_number`, the delivery is `failed`; a failed SMS or phone delivery falls back to one email delivery for that person. Every change is broadcast on the alert's topic as `{:delivery, %Delivery{}}`.
+**Delivery retries:** `Minion.Delivery.Worker` makes up to 4 attempts, 5s, 15s and 60s apart, keeping the delivery `pending` with `attempts` and `last_error` updated. After the last attempt, or at once for `:no_email_address` / `:no_phone_number`, the delivery is `failed`; a failed SMS or phone delivery falls back to one email delivery for that person. Every change is broadcast on the alert's topic as `{:delivery, %Delivery{}}`. A delivery job orphaned by a node that died mid-send is put back in the queue after 2 minutes (Oban Lifeline `rescue_after`), so it may rarely be sent twice but is never left pending.
 
 **Fake SMS/phone gateway:** `Minion.FakeGateway`, shown at `/gateway`. The SMS and phone channels post to `POST /fake-gateway/messages` (the app's own `/fake-gateway/messages` on whatever `PORT` it runs on; `SMS_GATEWAY_URL` points it elsewhere); `PUT /fake-gateway/status {"down": true}` makes it answer 503. A real provider replaces `Minion.Channels.Gateway`.
 
