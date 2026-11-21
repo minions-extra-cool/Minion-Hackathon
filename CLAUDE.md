@@ -87,7 +87,7 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 | `lib/minion/ingest/` | Pair A | source adapters, `Minion.Ingest.publish/1` |
 | `lib/minion/kafka.ex`, `lib/minion/kafka/` | Pair A | Kafka client, topic setup |
 | `lib/minion/rules/` | Pair A | `Rule`, the matcher, the rules cache |
-| `lib/minion/alerts/` | Pair A | `Alert`, the pipeline consumer, auto-resolve |
+| `lib/minion/alerts/` | Pair A | `Alert`, the pipeline consumer, the quiet sweep |
 | `lib/minion/delivery/` | Pair B | `Delivery`, `Minion.Delivery.dispatch/1`, workers |
 | `lib/minion/channels/` | Pair B | `Minion.Channel` and one module per channel |
 
