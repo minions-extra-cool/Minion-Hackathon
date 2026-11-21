@@ -28,18 +28,32 @@ defmodule MinionWeb.RulesLive do
   end
 
   @impl true
-  def handle_info({:rules_changed, id}, socket),
-    do: {:noreply, stream_insert(socket, :rules, Rules.get_rule!(id))}
+  def handle_info({:rules_changed, id}, socket) do
+    case Rules.get_rule(id) do
+      nil -> {:noreply, stream_delete_by_dom_id(socket, :rules, "rules-#{id}")}
+      rule -> {:noreply, stream_insert(socket, :rules, rule)}
+    end
+  end
 
   defp owner_label(owners, rule), do: owners["#{rule.owner_type}:#{rule.owner_id}"] || "unknown"
 
   defp notify_label(_labels, []), do: "Nobody (feed only)"
 
   defp notify_label(labels, entries) do
-    entries
-    |> Enum.map(&(labels["#{&1["type"]}:#{&1["id"]}"] || "missing #{&1["type"]}"))
-    |> Enum.join(", ")
+    who =
+      entries
+      |> Enum.map(&(labels["#{&1["type"]}:#{&1["id"]}"] || "missing #{&1["type"]}"))
+      |> Enum.join(", ")
+
+    case entries |> Enum.flat_map(&List.wrap(&1["channels"])) |> Enum.uniq() do
+      [] -> who
+      channels -> "#{who} · by #{channels |> Enum.map(&channel_label/1) |> Enum.join(", ")}"
+    end
   end
+
+  defp channel_label("sms"), do: "SMS"
+  defp channel_label("phone"), do: "phone call"
+  defp channel_label(channel), do: channel
 
   @impl true
   def render(assigns) do

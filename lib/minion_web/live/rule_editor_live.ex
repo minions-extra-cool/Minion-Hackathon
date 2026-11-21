@@ -73,8 +73,10 @@ defmodule MinionWeb.RuleEditorLive do
   defp unmatched_shape(_params), do: nil
 
   @impl true
-  def handle_event("change", params, socket),
-    do: {:noreply, update(socket, :draft, &Draft.put_params(&1, params))}
+  def handle_event("change", params, socket) do
+    socket = update(socket, :draft, &Draft.put_params(&1, params))
+    {:noreply, revalidate(socket, {:ok, Draft.to_attrs(socket.assigns.draft)})}
+  end
 
   def handle_event("add_condition", %{"path" => id}, socket),
     do:
@@ -112,8 +114,10 @@ defmodule MinionWeb.RuleEditorLive do
     end
   end
 
-  def handle_event("json_change", %{"json" => json}, socket),
-    do: {:noreply, assign(socket, json_text: json, json_error: nil)}
+  def handle_event("json_change", %{"json" => json}, socket) do
+    socket = assign(socket, json_text: json, json_error: nil)
+    {:noreply, revalidate(socket, decode_json(json))}
+  end
 
   def handle_event("test", %{"_target" => ["recent"], "recent" => id}, socket) do
     socket = assign(socket, :recent_choice, id)
@@ -148,6 +152,15 @@ defmodule MinionWeb.RuleEditorLive do
         {:noreply, assign(socket, json_error: message)}
     end
   end
+
+  defp revalidate(%{assigns: %{errors: []}} = socket, _attrs), do: socket
+
+  defp revalidate(socket, {:ok, attrs}) do
+    changeset = Rules.change_rule(socket.assigns.rule, attrs)
+    assign(socket, :errors, if(changeset.valid?, do: [], else: error_messages(changeset)))
+  end
+
+  defp revalidate(socket, {:error, _message}), do: socket
 
   defp persist(%Rule{id: nil}, attrs), do: Rules.create_rule(attrs)
   defp persist(rule, attrs), do: Rules.update_rule(rule, attrs)
@@ -399,7 +412,7 @@ defmodule MinionWeb.RuleEditorLive do
                 type="text"
                 name="title"
                 value={@draft["title"]}
-                placeholder="Disk full on {{payload.host}}"
+                placeholder="e.g. Disk full on {{payload.host}}"
                 class="input w-full font-mono text-sm"
               />
             </label>
@@ -410,7 +423,7 @@ defmodule MinionWeb.RuleEditorLive do
                 id="rule-body"
                 name="body"
                 rows="2"
-                placeholder="{{payload.host}} reported a full disk."
+                placeholder="e.g. {{payload.host}} reported a full disk."
                 class="textarea w-full font-mono text-sm"
               >{@draft["body"]}</textarea>
             </label>
@@ -424,7 +437,7 @@ defmodule MinionWeb.RuleEditorLive do
                   name="fields"
                   value={@draft["fields"]}
                   list="field-paths"
-                  placeholder="payload.host, payload.used"
+                  placeholder="e.g. payload.host, payload.used"
                   class="input w-full font-mono text-sm"
                 />
               </label>
@@ -458,7 +471,7 @@ defmodule MinionWeb.RuleEditorLive do
                   name="dedup_key"
                   value={@draft["dedup_key"]}
                   list="field-paths"
-                  placeholder="payload.host"
+                  placeholder="e.g. payload.host"
                   class="input w-full font-mono text-sm"
                 />
               </label>
@@ -708,7 +721,7 @@ defmodule MinionWeb.RuleEditorLive do
         name={"c[#{@id}][field]"}
         value={@leaf["field"]}
         list="field-paths"
-        placeholder="payload.type"
+        placeholder="e.g. payload.type"
         aria-label="Field"
         class="input input-sm w-56 font-mono"
       />
@@ -751,8 +764,8 @@ defmodule MinionWeb.RuleEditorLive do
     """
   end
 
-  defp value_placeholder("in"), do: "a, b, c"
+  defp value_placeholder("in"), do: "e.g. a, b, c"
   defp value_placeholder("exists"), do: "no value needed"
-  defp value_placeholder("matches"), do: "pricing-engine-*"
+  defp value_placeholder("matches"), do: "e.g. pricing-engine-*"
   defp value_placeholder(_op), do: "value"
 end

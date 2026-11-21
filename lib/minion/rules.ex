@@ -15,6 +15,9 @@ defmodule Minion.Rules do
   @spec get_rule!(Ecto.UUID.t()) :: Rule.t()
   def get_rule!(id), do: Repo.get!(Rule, id)
 
+  @spec get_rule(Ecto.UUID.t()) :: Rule.t() | nil
+  def get_rule(id), do: Repo.get(Rule, id)
+
   @spec change_rule(Rule.t(), map()) :: Ecto.Changeset.t()
   def change_rule(%Rule{} = rule, attrs \\ %{}), do: Rule.changeset(rule, attrs)
 

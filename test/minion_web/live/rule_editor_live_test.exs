@@ -91,6 +91,20 @@ defmodule MinionWeb.RuleEditorLiveTest do
     assert has_element?(view, "#group-root select option[value=any][selected]")
   end
 
+  test "once errors are shown, they update as the rule is fixed", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/rules/new")
+
+    view |> form("#rule-form") |> render_submit()
+    assert has_element?(view, "#rule-errors", "Name can't be blank")
+
+    view |> form("#rule-form", %{"name" => "Fixed"}) |> render_change()
+    refute has_element?(view, "#rule-errors", "Name can't be blank")
+    assert has_element?(view, "#rule-errors", "needs a field")
+
+    fill_basic_rule(view)
+    refute has_element?(view, "#rule-errors")
+  end
+
   test "adds conditions and groups", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/rules/new")
 

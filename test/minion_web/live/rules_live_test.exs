@@ -21,6 +21,22 @@ defmodule MinionWeb.RulesLiveTest do
     assert has_element?(view, "#nav-rules")
   end
 
+  test "shows channels a rule fixes next to who it notifies", %{conn: conn, team: team} do
+    rule =
+      rule_fixture(team, %{
+        name: "Payments down",
+        notify: [%{"type" => "oncall", "id" => team.id, "channels" => ["sms", "phone"]}]
+      })
+
+    {:ok, view, _html} = live(conn, ~p"/rules")
+
+    assert has_element?(
+             view,
+             "#rules-#{rule.id}",
+             "On call for #{team.name} · by SMS, phone call"
+           )
+  end
+
   test "the switch disables and re-enables a rule", %{conn: conn, rule: rule} do
     {:ok, view, _html} = live(conn, ~p"/rules")
 
