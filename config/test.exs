@@ -30,7 +30,8 @@ config :minion, :kafka,
   brokers: [{"localhost", 19092}],
   events_topic: "events_test",
   events_partitions: 2,
-  dead_letter_topic: "events_dead_test"
+  dead_letter_topic: "events_dead_test",
+  events_retention_hours: 6
 
 config :minion, :pipeline, enabled: false
 

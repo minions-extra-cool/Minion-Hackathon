@@ -45,9 +45,22 @@ defmodule Minion.Kafka.Topics do
       num_partitions: partitions,
       replication_factor: 1,
       assignments: [],
-      configs: []
+      configs: topic_configs(topic)
     }
 
     :brod.create_topics(Kafka.brokers(), [config], %{timeout: 5_000})
+  end
+
+  def topic_configs(topic) do
+    if topic == Kafka.events_topic() do
+      retention_ms = Kafka.config(:events_retention_hours) * 3_600_000
+
+      [
+        %{name: "retention.ms", value: Integer.to_string(retention_ms)},
+        %{name: "segment.bytes", value: Integer.to_string(16 * 1024 * 1024)}
+      ]
+    else
+      []
+    end
   end
 end

@@ -81,6 +81,10 @@ if events_partitions = System.get_env("EVENTS_PARTITIONS") do
   config :minion, :kafka, events_partitions: String.to_integer(events_partitions)
 end
 
+if retention = System.get_env("EVENTS_RETENTION_HOURS") do
+  config :minion, :kafka, events_retention_hours: String.to_integer(retention)
+end
+
 if processors = System.get_env("PIPELINE_PROCESSORS") do
   config :minion, :pipeline, processors: String.to_integer(processors)
 end
