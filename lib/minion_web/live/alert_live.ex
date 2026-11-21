@@ -264,6 +264,7 @@ defmodule MinionWeb.AlertLive do
       <div
         :if={@runbook_expanded}
         id="runbook-dialog"
+        phx-hook=".PageScrollLock"
         role="dialog"
         aria-modal="true"
         aria-labelledby="runbook-dialog-title"
@@ -297,7 +298,10 @@ defmodule MinionWeb.AlertLive do
               </button>
             </div>
           </div>
-          <div id="runbook-dialog-body" class="space-y-3 overflow-y-auto px-8 py-6 leading-relaxed">
+          <div
+            id="runbook-dialog-body"
+            class="space-y-3 overflow-y-auto overscroll-contain px-8 py-6 leading-relaxed"
+          >
             {runbook_html(@runbook, @alert)}
           </div>
         </div>
@@ -437,6 +441,20 @@ defmodule MinionWeb.AlertLive do
           <.icon name="hero-arrows-pointing-out-micro" class="size-3.5" /> Expand
         </button>
       </div>
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".PageScrollLock">
+        export default {
+          mounted() {
+            const page = document.documentElement
+            const scrollbarWidth = window.innerWidth - page.clientWidth
+            this.previous = {overflow: page.style.overflow, paddingRight: page.style.paddingRight}
+            page.style.overflow = "hidden"
+            page.style.paddingRight = `${scrollbarWidth}px`
+          },
+          destroyed() {
+            Object.assign(document.documentElement.style, this.previous)
+          }
+        }
+      </script>
       <script :type={Phoenix.LiveView.ColocatedHook} name=".RunbookOverflow">
         export default {
           mounted() {
