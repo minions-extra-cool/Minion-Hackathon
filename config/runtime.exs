@@ -89,6 +89,14 @@ if processors = System.get_env("PIPELINE_PROCESSORS") do
   config :minion, :pipeline, processors: String.to_integer(processors)
 end
 
+if cluster_nodes = System.get_env("CLUSTER_NODES") do
+  config :minion,
+         :cluster_nodes,
+         cluster_nodes
+         |> String.split(",", trim: true)
+         |> Enum.map(&String.to_atom(String.trim(&1)))
+end
+
 if batchers = System.get_env("PIPELINE_BATCHERS") do
   config :minion, :pipeline, batchers: String.to_integer(batchers)
 end

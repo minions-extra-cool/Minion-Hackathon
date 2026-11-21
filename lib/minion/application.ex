@@ -13,6 +13,7 @@ defmodule Minion.Application do
       MinionWeb.Telemetry,
       Minion.Repo,
       {DNSCluster, query: Application.get_env(:minion, :dns_cluster_query) || :ignore},
+      Minion.Cluster,
       {Phoenix.PubSub, name: Minion.PubSub},
       Minion.FakeGateway,
       {Oban, Application.fetch_env!(:minion, Oban)},

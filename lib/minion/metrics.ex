@@ -42,7 +42,9 @@ defmodule Minion.Metrics do
         processes: :erlang.system_info(:process_count),
         run_queue: :erlang.statistics(:total_run_queue_lengths_all),
         memory_mb: div(:erlang.memory(:total), 1_048_576),
-        schedulers: :erlang.system_info(:schedulers_online)
+        schedulers: :erlang.system_info(:schedulers_online),
+        node: node(),
+        cluster: Node.list()
       }
     }
   end
