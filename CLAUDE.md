@@ -68,7 +68,11 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
  "info": []}
 ```
 
-**PubSub topic:** `alerts:<owner_type>:<owner_id>`.
+**PubSub topic:** `alerts:<owner_type>:<owner_id>`, built by `Minion.Alerts.topic(alert)`. The pipeline broadcasts `{:alert, :created | :updated, %Alert{}}` after its transaction commits.
+
+**Dispatch contract:** `Minion.Delivery.dispatch(alert)` runs inside the pipeline's transaction. Return `:ok`, or `{:error, reason}` (or raise) to roll back the alert; the pipeline then retries the event.
+
+**Pipeline failures:** Kafka acknowledges every message, so the pipeline retries inside the handler: database outages are retried until the database is back; other errors are retried 5 times and the event is then moved to the `events_dead` topic. The pipeline and rules cache do not run in tests (`config :minion, :pipeline, enabled: false`); test `Minion.Alerts.Processor` directly.
 
 **Channel adapter:** a module implementing `Minion.Channel` with `deliver(alert, person) :: :ok | {:error, term}`.
 

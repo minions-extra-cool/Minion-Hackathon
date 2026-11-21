@@ -1,8 +1,6 @@
 defmodule Minion.Ingest do
   alias Minion.Kafka
 
-  @produce_timeout_ms 5_000
-
   @type envelope :: %{String.t() => term()}
 
   @spec envelope(String.t(), String.t(), term()) :: envelope()
@@ -29,16 +27,7 @@ defmodule Minion.Ingest do
   def publish(%{} = envelope), do: publish([envelope])
 
   def publish([%{"id" => key} | _] = envelopes) do
-    topic = Kafka.events_topic()
     messages = Enum.map(envelopes, &%{key: &1["id"], value: Jason.encode!(&1)})
-
-    with {:ok, partitions} <- :brod.get_partitions_count_safe(Kafka.client(), topic),
-         partition = :erlang.phash2(key, partitions),
-         {:ok, call_ref} <- :brod.produce(Kafka.client(), topic, partition, key, messages),
-         {:ok, offset} <- :brod.sync_produce_request_offset(call_ref, @produce_timeout_ms) do
-      {:ok, %{partition: partition, offset: offset}}
-    end
-  catch
-    :exit, reason -> {:error, {:exit, reason}}
+    Kafka.produce(Kafka.events_topic(), key, messages)
   end
 end
