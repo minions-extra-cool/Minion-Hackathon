@@ -113,13 +113,7 @@ defmodule MinionWeb.AlertLive do
 
       <dl id="alert-facts" class="grid grid-cols-[9rem_minmax(0,1fr)] text-sm">
         <.fact label="Status">
-          <span class="inline-flex items-center gap-2">
-            <.status_light
-              id="alert-status"
-              status={@alert.status}
-              severity={@alert.severity}
-              closed={not is_nil(@alert.closed_at)}
-            />
+          <span id="alert-status" data-status={@alert.status}>
             {status_label(@alert.status, not is_nil(@alert.closed_at))}
           </span>
         </.fact>
