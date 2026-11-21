@@ -108,6 +108,11 @@ defmodule MinionWeb.Layouts do
         tabindex="0"
         class="dropdown-content menu z-40 mt-1 w-60 border border-base-300 bg-base-100 p-2 shadow-lg"
       >
+        <li :if={@current_person}>
+          <.link id="my-profile" navigate={~p"/people/#{@current_person.id}"}>
+            <.icon name="hero-adjustments-horizontal-mini" class="size-4" /> Profile and notifications
+          </.link>
+        </li>
         <li class="menu-title text-xs">
           {if @current_person, do: "Switch to", else: "Act as"}
         </li>
