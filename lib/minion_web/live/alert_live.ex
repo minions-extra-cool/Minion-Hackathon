@@ -3,7 +3,7 @@ defmodule MinionWeb.AlertLive do
 
   import MinionWeb.AlertComponents
 
-  alias Minion.Alerts
+  alias Minion.{Alerts, Runbooks}
   alias Minion.Rules.Template
 
   @impl true
@@ -17,7 +17,8 @@ defmodule MinionWeb.AlertLive do
        page_title: alert.title,
        alert: alert,
        owner: Alerts.owner_name(alert),
-       confirming_resolve: false
+       runbook: Runbooks.get_for_rule(alert.rule_id),
+       resolve_step: nil
      )
      |> stream(:deliveries, Alerts.list_deliveries(alert))}
   end
@@ -30,17 +31,23 @@ defmodule MinionWeb.AlertLive do
   end
 
   def handle_event("ask_resolve", _params, socket),
-    do: {:noreply, assign(socket, :confirming_resolve, true)}
+    do: {:noreply, assign(socket, :resolve_step, :confirm)}
 
-  def handle_event("cancel_resolve", _params, socket),
-    do: {:noreply, assign(socket, :confirming_resolve, false)}
+  def handle_event("close_resolve", _params, socket),
+    do: {:noreply, assign(socket, :resolve_step, nil)}
 
   def handle_event("confirm_resolve", _params, socket) do
-    socket = assign(socket, :confirming_resolve, false)
+    case Alerts.resolve(socket.assigns.alert.id) do
+      {:ok, _alert} = resolved ->
+        after_transition(resolved, assign(socket, :resolve_step, :resolved), nil)
 
-    socket.assigns.alert.id
-    |> Alerts.resolve()
-    |> after_transition(socket, "This alert is already resolved.")
+      error ->
+        after_transition(
+          error,
+          assign(socket, :resolve_step, nil),
+          "This alert is already resolved."
+        )
+    end
   end
 
   defp after_transition({:ok, alert}, socket, _conflict_message),
@@ -128,6 +135,8 @@ defmodule MinionWeb.AlertLive do
         </div>
       </div>
 
+      <.runbook_panel :if={@alert.status != :resolved} alert={@alert} runbook={@runbook} />
+
       <dl id="alert-facts" class="grid grid-cols-[9rem_minmax(0,1fr)] text-sm">
         <.fact label="Status">
           <span id="alert-status" data-status={@alert.status}>
@@ -159,6 +168,9 @@ defmodule MinionWeb.AlertLive do
             <span :if={is_nil(@alert.rule)}>deleted rule</span>
             <.rule_color_swatch alert={@alert} />
           </span>
+        </.fact>
+        <.fact :if={@alert.status == :resolved and @alert.rule} label="Runbook">
+          <.runbook_link alert={@alert} runbook={@runbook} />
         </.fact>
         <.fact label="Owner">
           {@owner || "unknown"}
@@ -233,59 +245,153 @@ defmodule MinionWeb.AlertLive do
       </dl>
 
       <div
-        :if={@confirming_resolve}
+        :if={@resolve_step}
         id="resolve-confirm-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="resolve-confirm-title"
-        phx-window-keydown="cancel_resolve"
+        aria-labelledby="resolve-dialog-title"
+        phx-window-keydown="close_resolve"
         phx-key="Escape"
         class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-base-content/20 p-4"
       >
         <div
           class="m-auto w-full max-w-sm bg-base-100 p-8 shadow-xl"
-          phx-click-away="cancel_resolve"
+          phx-click-away="close_resolve"
         >
           <div class="flex items-start justify-between gap-6">
-            <h2 id="resolve-confirm-title" class="text-lg font-semibold tracking-tight">
-              Resolve this alert?
+            <h2 id="resolve-dialog-title" class="text-lg font-semibold tracking-tight">
+              <span :if={@resolve_step == :confirm}>Resolve this alert?</span>
+              <span
+                :if={@resolve_step == :resolved}
+                id="resolve-done-title"
+                class="inline-flex items-center gap-2"
+              >
+                <.icon name="hero-check-circle" class="size-6 text-success" /> Alert resolved
+              </span>
             </h2>
             <button
               id="resolve-close"
               type="button"
-              phx-click="cancel_resolve"
+              phx-click="close_resolve"
               aria-label="Close"
               class="text-base-content/50 transition-colors hover:text-base-content"
             >
               <.icon name="hero-x-mark-mini" class="size-5" />
             </button>
           </div>
-          <p class="mt-3 text-sm text-base-content/60">
-            {@alert.title} will be marked as resolved. The next matching event opens a new alert.
-          </p>
-          <div class="mt-7 flex justify-end gap-3">
-            <button
-              id="resolve-cancel"
-              type="button"
-              phx-click="cancel_resolve"
-              class="btn btn-sm btn-outline"
-            >
-              Cancel
-            </button>
-            <button
-              id="resolve-confirm"
-              type="button"
-              phx-click="confirm_resolve"
-              class="btn btn-sm btn-primary"
-            >
-              Yes, resolve
-            </button>
+
+          <div :if={@resolve_step == :confirm}>
+            <p class="mt-3 text-sm text-base-content/60">
+              {@alert.title} will be marked as resolved. The next matching event opens a new alert.
+            </p>
+            <div class="mt-7 flex justify-end gap-3">
+              <button
+                id="resolve-cancel"
+                type="button"
+                phx-click="close_resolve"
+                class="btn btn-sm btn-outline"
+              >
+                Cancel
+              </button>
+              <button
+                id="resolve-confirm"
+                type="button"
+                phx-click="confirm_resolve"
+                class="btn btn-sm btn-primary"
+              >
+                Yes, resolve
+              </button>
+            </div>
+          </div>
+
+          <div :if={@resolve_step == :resolved} id="resolve-runbook-prompt">
+            <p :if={@alert.rule} class="mt-3 text-sm text-base-content/60">
+              {if Runbooks.blank?(@runbook),
+                do:
+                  "Would you like to write a runbook? Note what fixed it, so the next person who gets this alert knows what to do.",
+                else:
+                  "Would you like to update the runbook? Note anything that was missing or wrong while it's fresh."}
+            </p>
+            <div class="mt-7 flex justify-end gap-3">
+              <button
+                id="resolve-done"
+                type="button"
+                phx-click="close_resolve"
+                class="btn btn-sm btn-outline"
+              >
+                {if @alert.rule, do: "Not now", else: "Done"}
+              </button>
+              <.link
+                :if={@alert.rule}
+                id="resolve-update-runbook"
+                navigate={runbook_path(@alert)}
+                class="btn btn-sm btn-primary"
+              >
+                {if Runbooks.blank?(@runbook), do: "Write runbook", else: "Update runbook"}
+              </.link>
+            </div>
           </div>
         </div>
       </div>
     </Layouts.app>
     """
   end
+
+  attr :alert, :map, required: true
+  attr :runbook, :map, default: nil
+
+  defp runbook_panel(assigns) do
+    ~H"""
+    <section
+      id="runbook"
+      aria-labelledby="runbook-title"
+      class="border-l-4 border-primary bg-base-200 p-5"
+    >
+      <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="runbook-title" class="inline-flex items-center gap-2 font-semibold">
+          <.icon name="hero-book-open-mini" class="size-4" /> What to do
+        </h2>
+        <span :if={@alert.rule} class="text-xs text-base-content/55">
+          <span :if={@runbook && @runbook.id}>
+            Updated <.local_time id="runbook-updated" at={@runbook.updated_at} /> ·
+          </span>
+          <.runbook_link alert={@alert} runbook={@runbook} />
+        </span>
+      </div>
+      <p
+        :if={not Runbooks.blank?(@runbook)}
+        id="runbook-body"
+        class="mt-3 whitespace-pre-line text-sm leading-relaxed"
+      >
+        {Runbooks.render(@runbook, @alert.sample_event)}
+      </p>
+      <p
+        :if={Runbooks.blank?(@runbook)}
+        id="runbook-missing"
+        class="mt-3 text-sm text-base-content/60"
+      >
+        No runbook for this rule yet. Once you've fixed it, write down what you did so the next person knows.
+      </p>
+    </section>
+    """
+  end
+
+  attr :alert, :map, required: true
+  attr :runbook, :map, default: nil
+
+  defp runbook_link(assigns) do
+    ~H"""
+    <.link
+      id="runbook-edit"
+      navigate={runbook_path(@alert)}
+      class="underline hover:text-base-content"
+    >
+      {if Runbooks.blank?(@runbook), do: "Write a runbook", else: "Edit runbook"}
+    </.link>
+    """
+  end
+
+  defp runbook_path(alert), do: ~p"/rules/#{alert.rule_id}/runbook?#{[from_alert: alert.id]}"
 
   attr :label, :string, required: true
   slot :inner_block, required: true
