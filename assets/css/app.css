@@ -168,8 +168,8 @@ html { scrollbar-gutter: stable; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  #home-logo:hover .logo-lid {
-    animation: logo-blink 320ms 1;
+  #home-logo.logo-blinking .logo-lid {
+    animation: logo-blink 240ms 1;
   }
 }
 

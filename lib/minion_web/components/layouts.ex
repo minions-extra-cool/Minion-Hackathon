@@ -41,9 +41,15 @@ defmodule MinionWeb.Layouts do
     ~H"""
     <header class="border-b border-base-300">
       <nav id="main-nav" class="flex items-center gap-8 px-6 py-3 lg:px-10">
-        <.link navigate={~p"/"} id="home-logo" aria-label="Minion, go to the dashboard">
+        <span
+          id="home-logo"
+          role="img"
+          aria-label="Minion"
+          class="cursor-pointer"
+          phx-click={JS.transition("logo-blinking", time: 240)}
+        >
           <.logo class="h-[34.8px] w-auto text-base-content" />
-        </.link>
+        </span>
         <ul class="flex items-center gap-1 text-sm">
           <li>
             <.link
