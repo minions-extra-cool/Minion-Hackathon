@@ -6,8 +6,13 @@ alias Minion.Repo
 alias Minion.Rules.Rule
 
 severity = String.to_existing_atom(List.first(System.argv()) || "critical")
-ops = Repo.one!(from t in Team, where: t.name == "ops")
-rule = Repo.one!(from r in Rule, where: r.owner_id == ^ops.id, limit: 1)
+ops = Repo.one(from t in Team, where: t.name == "ops")
+rule = ops && Repo.one(from r in Rule, where: r.owner_id == ^ops.id and r.name == "Disk full")
+
+if is_nil(rule) do
+  IO.puts("The seeded team 'ops' and its 'Disk full' rule are missing. Run: mix run priv/repo/seeds.exs")
+  System.halt(1)
+end
 now = DateTime.utc_now()
 title = "Delivery check #{Calendar.strftime(now, "%H:%M:%S")}"
 
