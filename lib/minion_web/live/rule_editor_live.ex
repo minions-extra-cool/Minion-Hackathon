@@ -696,12 +696,9 @@ defmodule MinionWeb.RuleEditorLive do
               class="textarea w-full font-mono text-xs"
             >{@test_text}</textarea>
           </.form>
-          <p class="text-xs text-base-content/50">
-            Paste a raw payload or a full envelope. Field paths from it are suggested in the editor.
-          </p>
 
           <div :if={is_nil(@test_env)} class="text-sm text-base-content/50">
-            Paste an event to see, as you edit, which conditions it meets.
+            Paste an event to see which conditions it meets.
           </div>
           <div
             :if={@test_env}
