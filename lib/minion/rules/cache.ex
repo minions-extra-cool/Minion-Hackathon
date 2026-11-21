@@ -26,6 +26,7 @@ defmodule Minion.Rules.Cache do
   @impl true
   def init(:ok) do
     :ets.new(@table, [:named_table, :protected, read_concurrency: true])
+    Phoenix.PubSub.subscribe(Minion.PubSub, Minion.Rules.topic())
     load!()
     schedule_reload()
     {:ok, nil}
@@ -39,14 +40,20 @@ defmodule Minion.Rules.Cache do
 
   @impl true
   def handle_info(:reload, state) do
-    try do
-      load!()
-    rescue
-      error -> Logger.error("Reloading rules failed, keeping previous rules: #{inspect(error)}")
-    end
-
+    safe_load()
     schedule_reload()
     {:noreply, state}
+  end
+
+  def handle_info({:rules_changed, _rule_id}, state) do
+    safe_load()
+    {:noreply, state}
+  end
+
+  defp safe_load do
+    load!()
+  rescue
+    error -> Logger.error("Reloading rules failed, keeping previous rules: #{inspect(error)}")
   end
 
   defp load! do
