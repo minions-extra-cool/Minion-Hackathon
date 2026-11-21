@@ -10,6 +10,12 @@ defmodule Minion.Channels.Email do
   @from "minion@minion.test"
 
   @impl Minion.Channel
+  def label, do: "Email"
+
+  @impl Minion.Channel
+  def permanent_errors, do: [:no_email_address]
+
+  @impl Minion.Channel
   def deliver(%Alert{}, %Person{email: email}) when email in [nil, ""],
     do: {:error, :no_email_address}
 

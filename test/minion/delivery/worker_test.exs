@@ -116,6 +116,24 @@ defmodule Minion.Delivery.WorkerTest do
              deliveries_for(alert)
   end
 
+  test "a person without a Discord webhook fails at once and falls back to email" do
+    %{delivery: delivery, alert: alert} = fixture(:discord)
+
+    assert {:cancel, :no_discord_webhook} = run(delivery, 1)
+
+    assert [%Delivery{channel: :discord, status: :failed}, %Delivery{channel: :email}] =
+             deliveries_for(alert)
+  end
+
+  test "a Discord delivery goes through the registered channel module" do
+    url = "https://discord.com/api/webhooks/123/abc-DEF"
+    %{delivery: delivery} = fixture(:discord, %{discord_webhook_url: url})
+    Req.Test.stub(Minion.Channels.Discord, &Plug.Conn.send_resp(&1, 204, ""))
+
+    assert :ok = run(delivery, 1)
+    assert %Delivery{status: :delivered} = reload(delivery)
+  end
+
   test "a failed email has no fallback" do
     %{delivery: delivery, alert: alert} = fixture(:email, %{email: nil})
 

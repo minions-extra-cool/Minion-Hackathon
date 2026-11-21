@@ -7,7 +7,6 @@ defmodule Minion.Delivery.Worker do
   alias Minion.Repo
 
   @retry_delays_sec [5, 15, 60]
-  @permanent_errors [:no_email_address, :no_phone_number]
 
   @impl Oban.Worker
   def backoff(%Oban.Job{attempt: attempt}),
@@ -34,7 +33,7 @@ defmodule Minion.Delivery.Worker do
         :ok
 
       {:error, reason} ->
-        if last_attempt?(job, reason) do
+        if last_attempt?(job, delivery.channel, reason) do
           give_up(delivery, reason)
           {:cancel, reason}
         else
@@ -45,7 +44,7 @@ defmodule Minion.Delivery.Worker do
   end
 
   defp send_through_channel(delivery) do
-    channel_for(delivery.channel).deliver(delivery.alert, delivery.person)
+    Minion.Channels.module_for(delivery.channel).deliver(delivery.alert, delivery.person)
   rescue
     exception -> {:error, Exception.message(exception)}
   catch
@@ -53,8 +52,8 @@ defmodule Minion.Delivery.Worker do
     :exit, reason -> {:error, {:exit, reason}}
   end
 
-  defp last_attempt?(job, reason),
-    do: reason in @permanent_errors or job.attempt >= job.max_attempts
+  defp last_attempt?(job, channel, reason),
+    do: Minion.Channels.permanent_error?(channel, reason) or job.attempt >= job.max_attempts
 
   defp give_up(delivery, reason) do
     {:ok, changed} =
@@ -93,8 +92,4 @@ defmodule Minion.Delivery.Worker do
 
   defp broadcast(%Delivery{alert: alert} = delivery),
     do: Phoenix.PubSub.broadcast(Minion.PubSub, Minion.Alerts.topic(alert), {:delivery, delivery})
-
-  defp channel_for(:email), do: Minion.Channels.Email
-  defp channel_for(:sms), do: Minion.Channels.Sms
-  defp channel_for(:phone), do: Minion.Channels.Phone
 end

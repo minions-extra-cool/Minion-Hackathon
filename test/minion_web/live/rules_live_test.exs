@@ -33,7 +33,7 @@ defmodule MinionWeb.RulesLiveTest do
     assert has_element?(
              view,
              "#rules-#{rule.id}",
-             "On call for #{team.name} · by SMS, phone call"
+             "On call for #{team.name} · by SMS, Phone call"
            )
   end
 

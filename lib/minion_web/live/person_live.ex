@@ -26,7 +26,7 @@ defmodule MinionWeb.PersonLive do
   def handle_event("validate", params, socket) do
     form =
       socket.assigns.person
-      |> Accounts.change_person(params["person"] || %{})
+      |> Accounts.change_person(person_params(params))
       |> Map.put(:action, :validate)
       |> to_form()
 
@@ -35,7 +35,7 @@ defmodule MinionWeb.PersonLive do
 
   def handle_event("save", params, socket) do
     prefs = parse_prefs(params["prefs"] || %{})
-    attrs = Map.put(params["person"] || %{}, "preferences", prefs)
+    attrs = Map.put(person_params(params), "preferences", prefs)
 
     case Accounts.update_person(socket.assigns.person, attrs) do
       {:ok, person} ->
@@ -51,6 +51,13 @@ defmodule MinionWeb.PersonLive do
       {:error, changeset} ->
         {:noreply, assign(socket, form: to_form(changeset), prefs: prefs)}
     end
+  end
+
+  def handle_event("remove_discord", _params, socket) do
+    {:ok, person} = Accounts.update_person(socket.assigns.person, %{discord_webhook_url: nil})
+
+    {:noreply,
+     socket |> assign(:person, person) |> put_flash(:info, "Removed the Discord webhook.")}
   end
 
   def handle_event("add_entry", %{"severity" => severity}, socket) do
@@ -83,6 +90,16 @@ defmodule MinionWeb.PersonLive do
 
   defp refreshed_current(%{assigns: %{current_person: %{id: id}}}, %{id: id} = person), do: person
   defp refreshed_current(socket, _person), do: socket.assigns.current_person
+
+  defp person_params(params) do
+    case params["person"] || %{} do
+      %{"discord_webhook_url" => url} = person when url in [nil, ""] ->
+        Map.delete(person, "discord_webhook_url")
+
+      person ->
+        person
+    end
+  end
 
   defp working_copy(preferences) do
     Map.new(Person.severities(), fn severity ->
@@ -145,13 +162,9 @@ defmodule MinionWeb.PersonLive do
   defp upcase_first(<<first::utf8, rest::binary>>), do: String.upcase(<<first::utf8>>) <> rest
 
   defp channels_text([]), do: "feed only"
-  defp channels_text(channels), do: channels |> Enum.map(&channel_label/1) |> Enum.join(" + ")
 
-  defp channel_label("sms"), do: "SMS"
-  defp channel_label("phone"), do: "phone call"
-  defp channel_label(channel), do: channel
-
-  defp checkbox_label(channel), do: channel |> channel_label() |> upcase_first()
+  defp channels_text(channels),
+    do: channels |> Enum.map(&Minion.Channels.label/1) |> Enum.join(" + ")
 
   defp severity_label(severity), do: upcase_first(severity)
 
@@ -198,6 +211,41 @@ defmodule MinionWeb.PersonLive do
           />
           <.input field={@form[:email]} type="email" label="Email" />
           <.input field={@form[:phone]} type="tel" label="Phone (for SMS and calls)" />
+          <div class="sm:col-span-2">
+            <.input
+              field={@form[:discord_webhook_url]}
+              value=""
+              type="password"
+              label="Discord webhook URL"
+              autocomplete="off"
+              placeholder={
+                if @person.discord_webhook_url,
+                  do: "Saved. Paste a new URL to replace it.",
+                  else: "https://discord.com/api/webhooks/…"
+              }
+            />
+            <p
+              :if={@person.discord_webhook_url}
+              id="discord-saved"
+              class="-mt-1 mb-1 inline-flex items-center gap-2 text-xs text-base-content/70"
+            >
+              <.icon name="hero-check-circle-micro" class="size-4 text-success" />
+              A webhook is saved (hidden here).
+              <button
+                id="remove-discord"
+                type="button"
+                phx-click="remove_discord"
+                class="underline hover:text-base-content"
+              >
+                Remove
+              </button>
+            </p>
+            <p id="discord-help" class="-mt-1 text-xs text-base-content/50">
+              In Discord: Server Settings → Integrations → Webhooks → New Webhook, pick a channel,
+              then Copy Webhook URL. Treat it like a password: anyone with it can post there.
+              Then tick Discord below for the severities you want.
+            </p>
+          </div>
         </section>
 
         <section class="space-y-6">
@@ -245,7 +293,7 @@ defmodule MinionWeb.PersonLive do
                     value={channel}
                     checked={channel in entry["channels"]}
                   />
-                  {checkbox_label(channel)}
+                  {Minion.Channels.label(channel)}
                 </label>
                 <span class="mx-1 h-5 border-l border-base-300" />
                 <input type="hidden" name={"prefs[#{severity}][#{index}][limited]"} value="false" />

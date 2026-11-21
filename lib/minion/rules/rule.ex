@@ -129,8 +129,6 @@ defmodule Minion.Rules.Rule do
     end
   end
 
-  @channels ["email", "sms", "phone"]
-
   defp validate_notify(:notify, entries) do
     cond do
       not Enum.all?(entries, &valid_recipient?/1) ->
@@ -153,7 +151,7 @@ defmodule Minion.Rules.Rule do
   defp valid_channels?(nil), do: true
 
   defp valid_channels?(channels) when is_list(channels) and channels != [],
-    do: Enum.all?(channels, &(&1 in @channels))
+    do: Enum.all?(channels, &(&1 in Minion.Channels.name_strings()))
 
   defp valid_channels?(_channels), do: false
 end

@@ -635,9 +635,7 @@ defmodule MinionWeb.RuleEditorLive do
                 /> Always, regardless of preferences:
                 <input type="hidden" name="channels[]" value="" />
                 <span
-                  :for={
-                    {channel, label} <- [{"email", "Email"}, {"sms", "SMS"}, {"phone", "Phone call"}]
-                  }
+                  :for={{channel, label} <- Minion.Channels.options()}
                   class="inline-flex items-center gap-1.5"
                 >
                   <input
