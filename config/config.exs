@@ -38,7 +38,13 @@ config :minion, Minion.Mailer, adapter: Swoosh.Adapters.Local
 
 config :minion, Oban,
   repo: Minion.Repo,
-  queues: [email: 10, sms: 10, phone: 10]
+  queues: [email: 10, sms: 10, phone: 10, maintenance: 1],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", Minion.Alerts.QuietSweepWorker, args: %{schedule_half_minute_run: true}}
+     ]}
+  ]
 
 config :minion, :kafka,
   brokers: [{"localhost", 19092}],
