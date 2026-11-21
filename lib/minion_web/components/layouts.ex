@@ -49,7 +49,7 @@ defmodule MinionWeb.Layouts do
               id="nav-dashboard"
               navigate={~p"/"}
               class={[
-                "rounded-md px-3 py-1.5 transition-colors hover:bg-base-200",
+                "px-3 py-1.5 transition-colors hover:bg-base-200",
                 @active == :dashboard && "bg-primary/60 font-medium hover:bg-primary/70"
               ]}
             >
@@ -59,7 +59,7 @@ defmodule MinionWeb.Layouts do
           <li>
             <span
               id="nav-rules"
-              class="flex cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-base-content/40"
+              class="flex cursor-not-allowed items-center gap-1.5 px-3 py-1.5 text-base-content/40"
               title="Rules are coming soon"
             >
               Rules <span class="text-[0.65rem] uppercase tracking-wide">soon</span>

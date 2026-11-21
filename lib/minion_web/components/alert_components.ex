@@ -76,7 +76,7 @@ defmodule MinionWeb.AlertComponents do
 
     ~H"""
     <span :if={@color} class="inline-flex items-center gap-1.5 text-base-content/60">
-      <span class={["inline-block size-2.5 rounded-sm", swatch_class(@color)]} />
+      <span class={["inline-block size-2.5", swatch_class(@color)]} />
       {@color}
     </span>
     """
