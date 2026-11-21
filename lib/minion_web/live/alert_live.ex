@@ -13,7 +13,12 @@ defmodule MinionWeb.AlertLive do
 
     {:ok,
      socket
-     |> assign(page_title: alert.title, alert: alert, owner: Alerts.owner_name(alert))
+     |> assign(
+       page_title: alert.title,
+       alert: alert,
+       owner: Alerts.owner_name(alert),
+       confirming_resolve: false
+     )
      |> stream(:deliveries, Alerts.list_deliveries(alert))}
   end
 
@@ -24,7 +29,15 @@ defmodule MinionWeb.AlertLive do
     |> after_transition(socket, "Someone already acknowledged or resolved this alert.")
   end
 
-  def handle_event("resolve", _params, socket) do
+  def handle_event("ask_resolve", _params, socket),
+    do: {:noreply, assign(socket, :confirming_resolve, true)}
+
+  def handle_event("cancel_resolve", _params, socket),
+    do: {:noreply, assign(socket, :confirming_resolve, false)}
+
+  def handle_event("confirm_resolve", _params, socket) do
+    socket = assign(socket, :confirming_resolve, false)
+
     socket.assigns.alert.id
     |> Alerts.resolve()
     |> after_transition(socket, "This alert is already resolved.")
@@ -107,7 +120,7 @@ defmodule MinionWeb.AlertLive do
           <button
             :if={@alert.status != :resolved}
             id="resolve"
-            phx-click="resolve"
+            phx-click="ask_resolve"
             class="btn btn-sm btn-primary"
           >
             Resolve
@@ -218,6 +231,58 @@ defmodule MinionWeb.AlertLive do
           </.link>
         </.fact>
       </dl>
+
+      <div
+        :if={@confirming_resolve}
+        id="resolve-confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="resolve-confirm-title"
+        phx-window-keydown="cancel_resolve"
+        phx-key="Escape"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-base-content/30 p-4"
+      >
+        <div
+          class="w-full max-w-sm border border-base-300 bg-base-100 p-6 shadow-xl"
+          phx-click-away="cancel_resolve"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <h2 id="resolve-confirm-title" class="text-lg font-semibold tracking-tight">
+              Resolve this alert?
+            </h2>
+            <button
+              id="resolve-close"
+              type="button"
+              phx-click="cancel_resolve"
+              aria-label="Close"
+              class="text-base-content/50 transition-colors hover:text-base-content"
+            >
+              <.icon name="hero-x-mark-mini" class="size-5" />
+            </button>
+          </div>
+          <p class="mt-2 text-sm text-base-content/60">
+            {@alert.title} will be marked as resolved. The next matching event opens a new alert.
+          </p>
+          <div class="mt-5 flex justify-end gap-2">
+            <button
+              id="resolve-cancel"
+              type="button"
+              phx-click="cancel_resolve"
+              class="btn btn-sm btn-outline"
+            >
+              Cancel
+            </button>
+            <button
+              id="resolve-confirm"
+              type="button"
+              phx-click="confirm_resolve"
+              class="btn btn-sm btn-primary"
+            >
+              Yes, resolve
+            </button>
+          </div>
+        </div>
+      </div>
     </Layouts.app>
     """
   end

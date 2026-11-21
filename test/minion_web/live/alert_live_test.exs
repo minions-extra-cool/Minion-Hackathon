@@ -43,8 +43,26 @@ defmodule MinionWeb.AlertLiveTest do
     refute has_element?(view, "#acknowledge")
 
     view |> element("#resolve") |> render_click()
+    assert has_element?(view, "#resolve-confirm-dialog")
+
+    view |> element("#resolve-confirm") |> render_click()
     assert has_element?(view, "#alert-status[data-status=resolved]")
     refute has_element?(view, "#resolve")
+  end
+
+  test "resolving asks for confirmation and can be cancelled", %{conn: conn, alert: alert} do
+    {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+    view |> element("#resolve") |> render_click()
+    assert has_element?(view, "#resolve-confirm-dialog")
+
+    view |> element("#resolve-cancel") |> render_click()
+    refute has_element?(view, "#resolve-confirm-dialog")
+    assert has_element?(view, "#alert-status[data-status=open]")
+
+    view |> element("#resolve") |> render_click()
+    view |> element("#resolve-confirm") |> render_click()
+    assert has_element?(view, "#alert-status[data-status=resolved]")
   end
 
   test "a status change made elsewhere shows up live", %{conn: conn, alert: alert} do
@@ -62,7 +80,8 @@ defmodule MinionWeb.AlertLiveTest do
     {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
     Minion.Repo.update_all(Minion.Alerts.Alert, set: [status: :resolved])
 
-    html = view |> element("#resolve") |> render_click()
+    view |> element("#resolve") |> render_click()
+    html = view |> element("#resolve-confirm") |> render_click()
 
     assert html =~ "already resolved"
     assert has_element?(view, "#alert-status[data-status=resolved]")
