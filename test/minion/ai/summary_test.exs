@@ -4,6 +4,7 @@ defmodule Minion.AI.SummaryTest do
   import Minion.AlertFixtures
 
   alias Minion.AI.{Gemini, Summary}
+  alias Minion.Runbooks
 
   setup do
     team = team_fixture()
@@ -29,6 +30,20 @@ defmodule Minion.AI.SummaryTest do
     assert prompt =~ "Rule: Disk full"
     assert prompt =~ "Fields:\n  payload.host = web-1"
     assert prompt =~ "\"host\": \"web-1\""
+  end
+
+  test "the prompt carries the rule's runbook filled in from the event", %{
+    rule: rule,
+    alert: alert
+  } do
+    refute Summary.build_prompt(alert) =~ "Team runbook"
+
+    {:ok, _} =
+      rule.id
+      |> Runbooks.get_or_build_for_rule()
+      |> Runbooks.save_runbook(%{body: "1. Clean /var on {{payload.host}}"})
+
+    assert Summary.build_prompt(alert) =~ "Team runbook for this rule:\n1. Clean /var on web-1"
   end
 
   test "an oversized payload is truncated", %{rule: rule} do
