@@ -52,6 +52,24 @@ defmodule MinionWeb.RuleEditorLiveTest do
     refute Repo.get_by(Rule, name: "Half done")
   end
 
+  test "ignores the _unused_ markers browsers send for untouched inputs", %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/rules/new")
+
+    render_change(view, "change", %{
+      "_target" => ["name"],
+      "name" => "Still works",
+      "_unused_title" => "",
+      "g" => %{"root" => "any", "_unused_root" => ""},
+      "c" => %{
+        "0" => %{"field" => "payload.type", "op" => "eq", "value" => "X", "_unused_value" => ""},
+        "_unused_0" => ""
+      }
+    })
+
+    assert has_element?(view, "#rule-name[value='Still works']")
+    assert has_element?(view, "#group-root select option[value=any][selected]")
+  end
+
   test "adds conditions and groups", %{conn: conn} do
     {:ok, view, _html} = live(conn, ~p"/rules/new")
 

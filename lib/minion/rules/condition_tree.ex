@@ -38,6 +38,18 @@ defmodule Minion.Rules.ConditionTree do
 
   defp put_children(group, children), do: %{mode(group) => children}
 
+  @spec node_at(map(), path()) :: {:ok, map()} | :error
+  def node_at(node, []), do: {:ok, node}
+
+  def node_at(node, [index | rest]) do
+    with true <- group?(node),
+         {:ok, child} <- Enum.fetch(children(node), index) do
+      node_at(child, rest)
+    else
+      _ -> :error
+    end
+  end
+
   @spec update_at(map(), path(), (map() -> map())) :: map()
   def update_at(node, [], fun), do: fun.(node)
 

@@ -92,6 +92,20 @@ defmodule Minion.RulesTest do
                {"team", attrs["owner_id"]}
     end
 
+    test "ignores params for positions that no longer exist or hold the other kind of node", %{
+      team: team
+    } do
+      draft = Draft.new("team:#{team.id}")
+
+      updated =
+        Draft.put_params(draft, %{
+          "g" => %{"0" => "any", "7" => "any"},
+          "c" => %{"root" => %{"field" => "x"}, "3-1" => %{"field" => "y"}}
+        })
+
+      assert updated["conditions"] == draft["conditions"]
+    end
+
     test "applies form params to conditions, groups, notify and enabled", %{team: team} do
       draft =
         Draft.new("team:#{team.id}")

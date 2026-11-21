@@ -117,25 +117,52 @@ defmodule Minion.Rules.Draft do
   defp put_conditions(draft, params) do
     tree =
       params
-      |> Map.get("g", %{})
-      |> Enum.reduce(draft["conditions"], fn {id, mode}, tree ->
-        ConditionTree.set_mode(tree, ConditionTree.parse_path_id(id), mode)
+      |> path_entries("g")
+      |> Enum.reduce(draft["conditions"], fn {path, mode}, tree ->
+        if group_at?(tree, path) and mode in ["all", "any"],
+          do: ConditionTree.set_mode(tree, path, mode),
+          else: tree
       end)
 
     tree =
       params
-      |> Map.get("c", %{})
-      |> Enum.reduce(tree, fn {id, leaf}, tree ->
-        ConditionTree.put_leaf(
-          tree,
-          ConditionTree.parse_path_id(id),
-          leaf["field"] || "",
-          leaf["op"] || "eq",
-          leaf["value"] || ""
-        )
+      |> path_entries("c")
+      |> Enum.reduce(tree, fn {path, leaf}, tree ->
+        if leaf_at?(tree, path) and is_map(leaf) do
+          ConditionTree.put_leaf(
+            tree,
+            path,
+            leaf["field"] || "",
+            leaf["op"] || "eq",
+            leaf["value"] || ""
+          )
+        else
+          tree
+        end
       end)
 
     Map.put(draft, "conditions", tree)
+  end
+
+  defp path_entries(params, key) do
+    params
+    |> Map.get(key, %{})
+    |> Enum.filter(fn {id, _value} -> id =~ ~r/\A(root|\d+(-\d+)*)\z/ end)
+    |> Enum.map(fn {id, value} -> {ConditionTree.parse_path_id(id), value} end)
+  end
+
+  defp group_at?(tree, path) do
+    case ConditionTree.node_at(tree, path) do
+      {:ok, node} -> ConditionTree.group?(node)
+      :error -> false
+    end
+  end
+
+  defp leaf_at?(tree, path) do
+    case ConditionTree.node_at(tree, path) do
+      {:ok, node} -> not ConditionTree.group?(node)
+      :error -> false
+    end
   end
 
   defp split_ref(ref) when is_binary(ref) do
