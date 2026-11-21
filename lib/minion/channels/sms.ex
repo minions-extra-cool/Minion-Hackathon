@@ -13,7 +13,7 @@ defmodule Minion.Channels.Sms do
     Gateway.send_message(
       "sms",
       phone,
-      "[#{String.upcase(to_string(alert.severity))}] #{alert.title}"
+      "[#{String.upcase(to_string(alert.severity))}] #{alert.title} #{MinionWeb.Links.alert_url(alert)}"
     )
   end
 end
