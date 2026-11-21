@@ -65,46 +65,31 @@
 /* This file is for your main application CSS */
 
 .status-light {
+  --light: color-mix(in oklch, var(--color-base-content) 22%, transparent);
   display: inline-block;
+  box-sizing: border-box;
   width: 0.625rem;
   height: 0.625rem;
   border-radius: 9999px;
 }
 
+.status-light-critical { --light: var(--color-error); }
+.status-light-warning { --light: var(--color-warning); }
+.status-light-info { --light: color-mix(in oklch, var(--color-info) 55%, var(--color-base-300)); }
+
 .status-light-open {
-  background: var(--color-error);
-  box-shadow: 0 0 6px 1px color-mix(in oklch, var(--color-error) 40%, transparent);
+  background: var(--light);
+  box-shadow: 0 0 6px 1px color-mix(in oklch, var(--light) 45%, transparent);
 }
 
 .status-light-acked {
-  background: var(--color-warning);
-  box-shadow: 0 0 6px 1px color-mix(in oklch, var(--color-warning) 45%, transparent);
+  background: transparent;
+  border: 2px solid var(--light);
+  box-shadow: 0 0 6px 1px color-mix(in oklch, var(--light) 40%, transparent);
 }
 
-.status-light-resolved,
-.status-light-offline {
+.status-light-resolved {
+  width: 0.4375rem;
+  height: 0.4375rem;
   background: color-mix(in oklch, var(--color-base-content) 22%, transparent);
-}
-
-.status-light-live {
-  background: var(--color-success);
-  animation: status-light-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes status-light-pulse {
-  0%, 100% {
-    opacity: 0.8;
-    box-shadow: 0 0 3px 0 color-mix(in oklch, var(--color-success) 30%, transparent);
-  }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 9px 2px color-mix(in oklch, var(--color-success) 50%, transparent);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .status-light-live {
-    animation: none;
-    box-shadow: 0 0 6px 1px color-mix(in oklch, var(--color-success) 40%, transparent);
-  }
 }

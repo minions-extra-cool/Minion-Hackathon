@@ -17,7 +17,6 @@ defmodule MinionWeb.DashboardLive do
      socket
      |> assign(
        page_title: "Dashboard",
-       live?: connected?(socket),
        owners: Alerts.owner_names(),
        rules: alerts |> Enum.map(& &1.rule) |> Enum.reject(&is_nil/1) |> Map.new(&{&1.id, &1})
      )
@@ -61,13 +60,7 @@ defmodule MinionWeb.DashboardLive do
     ~H"""
     <Layouts.app flash={@flash} active={:dashboard}>
       <div class="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
-          <p class="mt-1 flex items-center gap-2 text-sm text-base-content/60">
-            <.live_light live={@live?} />
-            {if @live?, do: "Updating live as events arrive", else: "Connecting…"}
-          </p>
-        </div>
+        <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
         <input
           id="alert-search"
           type="search"
@@ -82,8 +75,7 @@ defmodule MinionWeb.DashboardLive do
         <table id="alerts-table" class="table table-sm">
           <thead>
             <tr class="text-xs uppercase tracking-wide text-base-content/50">
-              <th class="w-10"><span class="sr-only">Status</span></th>
-              <th class="w-24">Severity</th>
+              <th class="w-10"><span class="sr-only">Status and severity</span></th>
               <th>Alert</th>
               <th class="w-40">Source</th>
               <th class="w-36">Owner</th>
@@ -93,7 +85,7 @@ defmodule MinionWeb.DashboardLive do
           </thead>
           <tbody id="alerts" phx-update="stream">
             <tr id="alerts-empty" class="hidden only:table-row">
-              <td colspan="7" class="py-10 text-center text-base-content/50">
+              <td colspan="6" class="py-10 text-center text-base-content/50">
                 No alerts yet. They appear here the moment an event matches a rule.
               </td>
             </tr>
@@ -107,12 +99,12 @@ defmodule MinionWeb.DashboardLive do
               phx-click={JS.navigate(~p"/alerts/#{alert.id}")}
             >
               <td>
-                <div class="flex items-center gap-2.5">
-                  <.priority_bar severity={alert.severity} class="h-5" />
-                  <.status_light status={alert.status} closed={not is_nil(alert.closed_at)} />
-                </div>
+                <.status_light
+                  status={alert.status}
+                  severity={alert.severity}
+                  closed={not is_nil(alert.closed_at)}
+                />
               </td>
-              <td><.severity_badge severity={alert.severity} /></td>
               <td class="max-w-0">
                 <.link
                   navigate={~p"/alerts/#{alert.id}"}

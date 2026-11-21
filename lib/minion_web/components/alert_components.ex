@@ -6,24 +6,38 @@ defmodule MinionWeb.AlertComponents do
   alias Minion.Alerts.Alert
 
   attr :status, :atom, required: true
+  attr :severity, :atom, required: true
   attr :closed, :boolean, default: false
   attr :id, :string, default: nil
 
   def status_light(assigns) do
-    assigns = assign(assigns, :label, status_label(assigns.status, assigns.closed))
+    assigns =
+      assign(assigns, :label, light_label(assigns.status, assigns.severity, assigns.closed))
 
     ~H"""
-    <span id={@id} class="inline-flex items-center" title={@label} data-status={@status}>
+    <span
+      id={@id}
+      class="inline-flex size-3 items-center justify-center"
+      title={@label}
+      data-status={@status}
+      data-severity={@severity}
+    >
       <span class={[
         "status-light",
         @status == :open && "status-light-open",
         @status == :acked && "status-light-acked",
-        @status == :resolved && "status-light-resolved"
+        @status == :resolved && "status-light-resolved",
+        @severity == :critical && "status-light-critical",
+        @severity == :warning && "status-light-warning",
+        @severity == :info && "status-light-info"
       ]} />
       <span class="sr-only">{@label}</span>
     </span>
     """
   end
+
+  defp light_label(:resolved, severity, _closed), do: "Resolved, #{severity}"
+  defp light_label(status, severity, closed), do: "#{status_label(status, closed)}, #{severity}"
 
   def status_label(:open, false), do: "Open"
   def status_label(:open, true), do: "Open, no new events (quiet)"
@@ -55,21 +69,6 @@ defmodule MinionWeb.AlertComponents do
     """
   end
 
-  attr :severity, :atom, required: true
-  attr :class, :any, default: nil
-
-  def priority_bar(assigns) do
-    ~H"""
-    <span class={[
-      "inline-block w-1 rounded-full",
-      @severity == :critical && "bg-base-content",
-      @severity == :warning && "bg-base-content/20",
-      @severity == :info && "bg-transparent",
-      @class
-    ]} />
-    """
-  end
-
   attr :alert, Alert, required: true
 
   def rule_color_swatch(assigns) do
@@ -93,19 +92,6 @@ defmodule MinionWeb.AlertComponents do
   defp swatch_class("green"), do: "bg-success"
   defp swatch_class("blue"), do: "bg-info"
   defp swatch_class(_other), do: "bg-base-content/30"
-
-  attr :live, :boolean, required: true
-  attr :id, :string, default: "live-indicator"
-
-  def live_light(assigns) do
-    ~H"""
-    <span
-      id={@id}
-      class={["status-light", if(@live, do: "status-light-live", else: "status-light-offline")]}
-      data-live={to_string(@live)}
-    />
-    """
-  end
 
   attr :id, :string, required: true
   attr :at, DateTime, required: true

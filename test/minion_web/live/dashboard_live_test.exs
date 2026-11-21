@@ -15,7 +15,6 @@ defmodule MinionWeb.DashboardLiveTest do
     {:ok, view, _html} = live(conn, ~p"/")
 
     assert has_element?(view, "#alerts-empty")
-    assert has_element?(view, "#live-indicator[data-live=true]")
     assert has_element?(view, "#nav-dashboard")
     assert has_element?(view, "#nav-rules")
   end
@@ -26,7 +25,7 @@ defmodule MinionWeb.DashboardLiveTest do
 
     {:ok, view, _html} = live(conn, ~p"/")
 
-    assert has_element?(view, "#alerts-#{open.id} [data-status=open]")
+    assert has_element?(view, "#alerts-#{open.id} [data-status=open][data-severity=warning]")
     assert has_element?(view, "#alerts-#{acked.id} [data-status=acked]")
     assert has_element?(view, "#alerts-#{open.id} a", "Disk full on web-1")
   end

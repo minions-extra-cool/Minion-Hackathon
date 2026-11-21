@@ -77,7 +77,13 @@ defmodule MinionWeb.AlertLive do
 
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div class="flex items-start gap-3">
-          <.priority_bar severity={@alert.severity} class="h-8" />
+          <span class="pt-2.5">
+            <.status_light
+              status={@alert.status}
+              severity={@alert.severity}
+              closed={not is_nil(@alert.closed_at)}
+            />
+          </span>
           <div>
             <h1 id="alert-title" class="text-2xl font-semibold tracking-tight">{@alert.title}</h1>
             <p class="mt-1 text-sm text-base-content/60">
@@ -111,6 +117,7 @@ defmodule MinionWeb.AlertLive do
             <.status_light
               id="alert-status"
               status={@alert.status}
+              severity={@alert.severity}
               closed={not is_nil(@alert.closed_at)}
             />
             {status_label(@alert.status, not is_nil(@alert.closed_at))}
