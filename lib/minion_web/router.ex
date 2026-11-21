@@ -18,6 +18,7 @@ defmodule MinionWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    live "/alerts/:id", AlertLive
     live "/gateway", FakeGatewayLive
   end
 
