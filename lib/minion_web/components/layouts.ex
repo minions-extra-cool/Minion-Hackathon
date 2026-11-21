@@ -39,9 +39,8 @@ defmodule MinionWeb.Layouts do
     ~H"""
     <header class="border-b border-base-300">
       <nav id="main-nav" class="flex items-center gap-8 px-6 py-3 lg:px-10">
-        <.link navigate={~p"/"} class="flex items-center gap-2 font-semibold tracking-tight">
-          <span class="inline-block size-3 rounded-full bg-primary ring-2 ring-base-content/80" />
-          Minion
+        <.link navigate={~p"/"} id="home-logo" aria-label="Minion, go to the dashboard">
+          <.logo class="h-6 w-auto text-base-content" />
         </.link>
         <ul class="flex items-center gap-1 text-sm">
           <li>
@@ -79,6 +78,27 @@ defmodule MinionWeb.Layouts do
     </main>
 
     <.flash_group flash={@flash} />
+    """
+  end
+
+  attr :class, :any, default: nil
+
+  def logo(assigns) do
+    ~H"""
+    <svg
+      id="minion-logo"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="26 4 72 40"
+      fill="none"
+      role="img"
+      aria-label="Minion"
+      class={@class}
+    >
+      <path d="M28 20h17v8H28a4.5 4.5 0 0 0 0-8z" fill="currentColor" />
+      <circle cx="60" cy="24" r="15" stroke="currentColor" stroke-width="6" />
+      <circle cx="60" cy="24" r="5.5" fill="currentColor" />
+      <path d="M80.62 20H91a4 4 0 0 1 0 8H80.62A21 21 0 0 0 80.62 20z" fill="currentColor" />
+    </svg>
     """
   end
 
