@@ -114,6 +114,45 @@ defmodule Minion.DeliveryTest do
     end
   end
 
+  describe "channels chosen by the rule" do
+    defp delivered do
+      Repo.all(from d in Delivery, select: {d.person_id, d.channel})
+      |> Enum.sort()
+    end
+
+    test "override each person's preferences" do
+      team = insert_team()
+      anna = insert_person(team, "Anna")
+
+      rule =
+        insert_rule(team,
+          notify: [%{"type" => "team", "id" => team.id, "channels" => ["sms", "phone"]}]
+        )
+
+      Dispatch.dispatch(insert_alert(rule), ~U[2026-11-20 10:00:00Z])
+
+      assert delivered() == Enum.sort([{anna.id, :sms}, {anna.id, :phone}])
+    end
+
+    test "a person reached twice gets both the rule's channels and their preferences" do
+      team = insert_team()
+      anna = insert_person(team, "Anna")
+      team |> Ecto.Changeset.change(oncall_person_id: anna.id) |> Repo.update!()
+
+      rule =
+        insert_rule(team,
+          notify: [
+            %{"type" => "oncall", "id" => team.id, "channels" => ["phone"]},
+            %{"type" => "team", "id" => team.id}
+          ]
+        )
+
+      Dispatch.dispatch(insert_alert(rule), ~U[2026-11-20 10:00:00Z])
+
+      assert delivered() == Enum.sort([{anna.id, :phone}, {anna.id, :email}])
+    end
+  end
+
   describe "choosing channels from preferences" do
     defp channels_at(preferences, severity, time) do
       team = insert_team()

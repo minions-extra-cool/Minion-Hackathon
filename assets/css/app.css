@@ -123,6 +123,8 @@
 
 /* This file is for your main application CSS */
 
+html { scrollbar-gutter: stable; }
+
 .status-light {
   --light: color-mix(in oklch, var(--color-base-content) 22%, transparent);
   display: inline-block;

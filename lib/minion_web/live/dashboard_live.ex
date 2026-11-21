@@ -105,20 +105,21 @@ defmodule MinionWeb.DashboardLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} active={:dashboard}>
-      <div class="flex flex-wrap items-end justify-between gap-4">
-        <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
-        <.form for={@search_form} id="search-form" phx-change="search" phx-submit="search">
-          <.input
-            field={@search_form[:q]}
-            id="alert-search"
-            type="search"
-            placeholder="Search alerts"
-            autocomplete="off"
-            phx-debounce="150"
-            class="input input-sm w-72"
-          />
-        </.form>
-      </div>
+      <.feed_header active={:alerts}>
+        <:actions>
+          <.form for={@search_form} id="search-form" phx-change="search" phx-submit="search">
+            <.input
+              field={@search_form[:q]}
+              id="alert-search"
+              type="search"
+              placeholder="Search alerts"
+              autocomplete="off"
+              phx-debounce="150"
+              class="input input-sm w-72"
+            />
+          </.form>
+        </:actions>
+      </.feed_header>
 
       <p :if={@query != ""} id="search-summary" class="text-sm text-base-content/60">
         Showing alerts matching <span class="font-semibold text-base-content">{@query}</span>

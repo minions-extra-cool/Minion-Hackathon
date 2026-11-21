@@ -16,6 +16,7 @@ defmodule Minion.Alerts.Processor do
 
     case Enum.filter(rules, &Matcher.matches?(&1.conditions, envelope)) do
       [] ->
+        Minion.Unmatched.record(envelope)
         {:ok, []}
 
       matched ->

@@ -27,4 +27,15 @@ defmodule Minion.Rules.CacheTest do
 
     assert Cache.all() |> Enum.map(& &1.name) |> Enum.sort() == ["added later", "enabled"]
   end
+
+  test "reloads as soon as a rule is saved, without waiting for the timer" do
+    rule = insert_rule("will be disabled", true)
+    start_supervised!(Cache)
+    assert Enum.map(Cache.all(), & &1.name) == ["will be disabled"]
+
+    {:ok, _} = Minion.Rules.set_enabled(rule, false)
+    :sys.get_state(Cache)
+
+    assert Cache.all() == []
+  end
 end

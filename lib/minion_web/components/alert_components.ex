@@ -1,5 +1,6 @@
 defmodule MinionWeb.AlertComponents do
   use Phoenix.Component
+  use MinionWeb, :verified_routes
 
   import MinionWeb.CoreComponents, only: [icon: 1]
 
@@ -38,6 +39,75 @@ defmodule MinionWeb.AlertComponents do
 
   defp light_label(:resolved, severity, _closed), do: "Resolved, #{severity}"
   defp light_label(status, severity, closed), do: "#{status_label(status, closed)}, #{severity}"
+
+  attr :severity, :atom, required: true
+  attr :enabled, :boolean, default: true
+
+  def rule_light(assigns) do
+    ~H"""
+    <span
+      class="inline-flex size-3 items-center justify-center"
+      title={"#{@severity}#{if @enabled, do: "", else: ", disabled"}"}
+      data-severity={@severity}
+      data-enabled={to_string(@enabled)}
+    >
+      <span class={[
+        "status-light",
+        if(@enabled, do: "status-light-open", else: "status-light-resolved"),
+        @severity == :critical && "status-light-critical",
+        @severity == :warning && "status-light-warning",
+        @severity == :info && "status-light-info"
+      ]} />
+    </span>
+    """
+  end
+
+  attr :active, :atom, required: true, values: [:alerts, :unmatched]
+  slot :actions
+
+  def feed_header(assigns) do
+    ~H"""
+    <div class="flex min-h-8 flex-wrap items-center justify-between gap-4 [&_.fieldset]:mb-0 [&_.fieldset]:py-0">
+      <h1 class="text-2xl font-semibold tracking-tight">Live feed</h1>
+      {render_slot(@actions)}
+    </div>
+
+    <nav id="feed-tabs" class="flex gap-6 border-b border-base-300 text-sm" aria-label="Feed">
+      <.feed_tab id="tab-alerts" navigate={~p"/"} label="Alerts" active={@active == :alerts} />
+      <.feed_tab
+        id="tab-unmatched"
+        navigate={~p"/unmatched"}
+        label="Unmatched events"
+        active={@active == :unmatched}
+      />
+    </nav>
+    """
+  end
+
+  attr :id, :string, required: true
+  attr :navigate, :string, required: true
+  attr :label, :string, required: true
+  attr :active, :boolean, required: true
+
+  defp feed_tab(assigns) do
+    ~H"""
+    <.link
+      id={@id}
+      navigate={@navigate}
+      data-label={@label}
+      class={[
+        "-mb-px inline-flex flex-col border-b-2 pb-2 transition-colors",
+        "after:invisible after:h-0 after:overflow-hidden after:font-semibold after:content-[attr(data-label)]",
+        if(@active,
+          do: "border-base-content font-semibold",
+          else: "border-transparent text-base-content/60 hover:text-base-content"
+        )
+      ]}
+    >
+      {@label}
+    </.link>
+    """
+  end
 
   def status_label(:open, false), do: "Open"
   def status_label(:open, true), do: "Open, no new events (quiet)"
