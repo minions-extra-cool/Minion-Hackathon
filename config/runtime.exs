@@ -20,8 +20,14 @@ if System.get_env("PHX_SERVER") do
   config :minion, MinionWeb.Endpoint, server: true
 end
 
-config :minion, MinionWeb.Endpoint,
-  http: [port: String.to_integer(System.get_env("PORT", "4000"))]
+port = String.to_integer(System.get_env("PORT", "4000"))
+
+config :minion, MinionWeb.Endpoint, http: [port: port]
+
+if config_env() != :test do
+  config :minion, Minion.Channels.Gateway,
+    url: System.get_env("SMS_GATEWAY_URL", "http://localhost:#{port}/fake-gateway/messages")
+end
 
 if events_partitions = System.get_env("EVENTS_PARTITIONS") do
   config :minion, :kafka, events_partitions: String.to_integer(events_partitions)
