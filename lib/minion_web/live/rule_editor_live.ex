@@ -270,9 +270,19 @@ defmodule MinionWeb.RuleEditorLive do
       </.link>
 
       <div class="flex flex-wrap items-end justify-between gap-4">
-        <h1 class="text-2xl font-semibold tracking-tight">
-          {if @rule.id, do: "Edit rule", else: "New rule"}
-        </h1>
+        <div class="flex items-baseline gap-4">
+          <h1 class="text-2xl font-semibold tracking-tight">
+            {if @rule.id, do: "Edit rule", else: "New rule"}
+          </h1>
+          <.link
+            :if={@rule.id}
+            id="rule-runbook-link"
+            navigate={~p"/rules/#{@rule.id}/runbook"}
+            class="inline-flex items-center gap-1 text-sm underline text-base-content/70 hover:text-base-content"
+          >
+            <.icon name="hero-book-open-mini" class="size-4" /> Runbook
+          </.link>
+        </div>
         <div class="join" role="group" aria-label="Editor mode">
           <button
             id="mode-visual"
