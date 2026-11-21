@@ -47,5 +47,6 @@ defmodule MinionWeb.Router do
     pipe_through :api
 
     post "/messages", FakeGatewayController, :create
+    put "/status", FakeGatewayController, :update_status
   end
 end

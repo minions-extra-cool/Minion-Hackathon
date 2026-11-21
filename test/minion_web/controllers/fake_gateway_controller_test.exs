@@ -26,6 +26,18 @@ defmodule MinionWeb.FakeGatewayControllerTest do
     assert %{"error" => "gateway is down"} = json_response(conn, 503)
   end
 
+  test "the status endpoint takes the gateway down and brings it back", %{conn: conn} do
+    assert %{"down" => true} =
+             conn |> put(~p"/fake-gateway/status", %{down: true}) |> json_response(200)
+
+    assert FakeGateway.down?()
+
+    assert %{"down" => false} =
+             build_conn() |> put(~p"/fake-gateway/status", %{down: false}) |> json_response(200)
+
+    refute FakeGateway.down?()
+  end
+
   test "answers 422 for an invalid message", %{conn: conn} do
     conn = post(conn, ~p"/fake-gateway/messages", %{channel: "fax", to: "+48100", text: "hi"})
 
