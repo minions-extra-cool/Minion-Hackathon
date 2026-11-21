@@ -3,7 +3,7 @@ defmodule MinionWeb.AlertLive do
 
   import MinionWeb.AlertComponents
 
-  alias Minion.AI.Summary
+  alias Minion.AI.{RunbookSuggestion, Summary}
   alias Minion.{Alerts, Runbooks}
   alias Minion.Rules.Template
 
@@ -22,6 +22,7 @@ defmodule MinionWeb.AlertLive do
        owner: Alerts.owner_name(alert),
        runbook: Runbooks.get_for_rule(alert.rule_id),
        resolve_step: nil,
+       runbook_suggestion: %AsyncResult{},
        runbook_expanded: false,
        ai_summary: %AsyncResult{}
      )
@@ -42,16 +43,41 @@ defmodule MinionWeb.AlertLive do
   def handle_event("ask_resolve", _params, socket),
     do: {:noreply, assign(socket, :resolve_step, :confirm)}
 
-  def handle_event("finish_resolve", params, socket) do
+  def handle_event("save_note", params, socket) do
+    note = if params["next"] == "skip", do: nil, else: params["note"]
+
     socket =
-      case Alerts.save_resolution_note(socket.assigns.alert.id, params["note"]) do
+      case Alerts.save_resolution_note(socket.assigns.alert.id, note) do
         {:ok, alert} -> assign(socket, :alert, %{alert | rule: socket.assigns.alert.rule})
         {:error, :not_resolved} -> socket
       end
 
-    if params["next"] == "runbook" and socket.assigns.alert.rule,
-      do: {:noreply, push_navigate(socket, to: runbook_path(socket.assigns.alert))},
-      else: {:noreply, assign(socket, :resolve_step, nil)}
+    cond do
+      is_nil(socket.assigns.alert.rule) ->
+        {:noreply, assign(socket, :resolve_step, nil)}
+
+      socket.assigns.alert.resolution_note ->
+        {:noreply, socket |> assign(:resolve_step, :runbook) |> start_runbook_suggestion()}
+
+      true ->
+        {:noreply, assign(socket, resolve_step: :runbook, runbook_suggestion: %AsyncResult{})}
+    end
+  end
+
+  def handle_event("save_runbook", %{"body" => body}, socket) do
+    socket.assigns.alert.rule_id
+    |> Runbooks.get_or_build_for_rule()
+    |> Runbooks.save_runbook(%{body: body})
+    |> case do
+      {:ok, runbook} ->
+        {:noreply,
+         socket
+         |> assign(runbook: runbook, resolve_step: nil)
+         |> put_flash(:info, "Runbook updated. The next person gets these steps.")}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Could not save the runbook.")}
+    end
   end
 
   def handle_event("expand_runbook", _params, socket),
@@ -66,7 +92,7 @@ defmodule MinionWeb.AlertLive do
   def handle_event("confirm_resolve", _params, socket) do
     case Alerts.resolve(socket.assigns.alert.id, socket.assigns.current_person.id) do
       {:ok, _alert} = resolved ->
-        after_transition(resolved, assign(socket, :resolve_step, :resolved), nil)
+        after_transition(resolved, assign(socket, :resolve_step, :note), nil)
 
       error ->
         after_transition(
@@ -109,6 +135,55 @@ defmodule MinionWeb.AlertLive do
        socket
        |> assign(ai_summary: AsyncResult.failed(socket.assigns.ai_summary, {:exit, reason}))
        |> assign(ai_summary_html: nil)}
+
+  def handle_async(:runbook_suggestion, {:ok, {:ok, text}}, socket),
+    do:
+      {:noreply,
+       assign(
+         socket,
+         :runbook_suggestion,
+         AsyncResult.ok(socket.assigns.runbook_suggestion, text)
+       )}
+
+  def handle_async(:runbook_suggestion, {:ok, {:error, reason}}, socket),
+    do:
+      {:noreply,
+       assign(
+         socket,
+         :runbook_suggestion,
+         AsyncResult.failed(socket.assigns.runbook_suggestion, reason)
+       )}
+
+  def handle_async(:runbook_suggestion, {:exit, reason}, socket),
+    do:
+      {:noreply,
+       assign(
+         socket,
+         :runbook_suggestion,
+         AsyncResult.failed(socket.assigns.runbook_suggestion, {:exit, reason})
+       )}
+
+  defp start_runbook_suggestion(socket) do
+    alert = socket.assigns.alert
+    current = socket.assigns.runbook && socket.assigns.runbook.body
+
+    socket
+    |> assign(:runbook_suggestion, AsyncResult.loading())
+    |> start_async(:runbook_suggestion, fn ->
+      RunbookSuggestion.suggest(alert, current, alert.resolution_note)
+    end)
+  end
+
+  defp resolve_steps(alert),
+    do:
+      if(alert.rule,
+        do: ["Resolve", "What fixed it", "Runbook"],
+        else: ["Resolve", "What fixed it"]
+      )
+
+  defp step_index(:confirm), do: 0
+  defp step_index(:note), do: 1
+  defp step_index(:runbook), do: 2
 
   defp after_transition({:ok, alert}, socket, _conflict_message),
     do: {:noreply, assign(socket, :alert, %{alert | rule: socket.assigns.alert.rule})}
@@ -465,18 +540,38 @@ defmodule MinionWeb.AlertLive do
         class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-base-content/20 p-4"
       >
         <div
-          class="m-auto w-full max-w-sm bg-base-100 p-8 shadow-xl"
+          class={[
+            "m-auto w-full bg-base-100 p-8 shadow-xl",
+            if(@resolve_step == :runbook, do: "max-w-2xl", else: "max-w-md")
+          ]}
           phx-click-away="close_resolve"
         >
+          <ol id="resolve-steps" class="mb-5 flex gap-1 text-xs" aria-label="Progress">
+            <li
+              :for={{label, index} <- Enum.with_index(resolve_steps(@alert))}
+              aria-current={index == step_index(@resolve_step) && "step"}
+              class={[
+                "flex-1 border-t-4 pt-1.5",
+                index < step_index(@resolve_step) && "border-primary text-base-content/60",
+                index == step_index(@resolve_step) && "border-primary font-semibold",
+                index > step_index(@resolve_step) && "border-base-300 text-base-content/40"
+              ]}
+            >
+              {index + 1}. {label}
+            </li>
+          </ol>
           <div class="flex items-start justify-between gap-6">
             <h2 id="resolve-dialog-title" class="text-lg font-semibold tracking-tight">
               <span :if={@resolve_step == :confirm}>Resolve this alert?</span>
               <span
-                :if={@resolve_step == :resolved}
+                :if={@resolve_step == :note}
                 id="resolve-done-title"
                 class="inline-flex items-center gap-2"
               >
                 <.icon name="hero-check-circle" class="size-6 text-success" /> Alert resolved
+              </span>
+              <span :if={@resolve_step == :runbook} id="resolve-runbook-title">
+                {if Runbooks.blank?(@runbook), do: "Write a runbook?", else: "Update the runbook?"}
               </span>
             </h2>
             <button
@@ -514,50 +609,119 @@ defmodule MinionWeb.AlertLive do
             </div>
           </div>
 
-          <form
-            :if={@resolve_step == :resolved}
-            id="resolve-runbook-prompt"
-            phx-submit="finish_resolve"
-          >
+          <form :if={@resolve_step == :note} id="resolve-note-form" phx-submit="save_note">
             <label for="resolution-note" class="mt-4 block text-sm font-medium">
               How did you fix it? <span class="font-normal text-base-content/50">(optional)</span>
             </label>
             <textarea
               id="resolution-note"
               name="note"
-              rows="3"
+              rows="4"
               placeholder="e.g. Cleared old logs in /var/log and restarted the agent."
               class="textarea mt-2 w-full"
             >{@alert.resolution_note}</textarea>
-            <p :if={@alert.rule} class="mt-3 text-sm text-base-content/60">
-              {if Runbooks.blank?(@runbook),
-                do:
-                  "Would you like to write a runbook? Note what fixed it, so the next person who gets this alert knows what to do.",
-                else:
-                  "Would you like to update the runbook? Note anything that was missing or wrong while it's fresh."}
+            <p :if={@alert.rule} class="mt-2 text-xs text-base-content/50">
+              Next, AI uses your note to suggest a runbook update for the next person.
             </p>
             <div class="mt-7 flex justify-end gap-3">
               <button
-                id="resolve-done"
+                id="resolve-skip-note"
                 type="submit"
                 name="next"
-                value="close"
+                value="skip"
                 class="btn btn-sm btn-outline"
               >
-                Done
+                Skip
               </button>
               <button
-                :if={@alert.rule}
-                id="resolve-update-runbook"
+                id="resolve-save-note"
                 type="submit"
                 name="next"
-                value="runbook"
+                value="save"
                 class="btn btn-sm btn-primary"
               >
-                {if Runbooks.blank?(@runbook), do: "Write runbook", else: "Update runbook"}
+                {if @alert.rule, do: "Next", else: "Done"}
               </button>
             </div>
           </form>
+
+          <div :if={@resolve_step == :runbook} id="resolve-runbook-step">
+            <div
+              :if={@runbook_suggestion.loading}
+              id="runbook-suggestion-loading"
+              class="mt-4 flex items-center gap-2 text-sm text-base-content/70"
+            >
+              <.icon name="hero-arrow-path-mini" class="size-4 animate-spin" />
+              Writing a suggested runbook from your note…
+            </div>
+
+            <form
+              :if={@runbook_suggestion.ok?}
+              id="runbook-suggestion-form"
+              phx-submit="save_runbook"
+            >
+              <p class="mt-3 text-sm text-base-content/60">
+                AI folded your note into the runbook. Edit anything that's off, then save.
+              </p>
+              <textarea
+                id="runbook-suggestion"
+                name="body"
+                rows="14"
+                class="textarea mt-3 w-full font-mono text-xs leading-relaxed"
+              >{@runbook_suggestion.result}</textarea>
+              <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+                <.link
+                  navigate={runbook_path(@alert)}
+                  class="mr-auto text-sm underline text-base-content/60 hover:text-base-content"
+                >
+                  Open the full editor
+                </.link>
+                <button
+                  id="resolve-done"
+                  type="button"
+                  phx-click="close_resolve"
+                  class="btn btn-sm btn-outline"
+                >
+                  Not now
+                </button>
+                <button id="save-runbook-suggestion" type="submit" class="btn btn-sm btn-primary">
+                  Save runbook
+                </button>
+              </div>
+            </form>
+
+            <div :if={!@runbook_suggestion.loading and !@runbook_suggestion.ok?}>
+              <p
+                :if={@runbook_suggestion.failed}
+                id="runbook-suggestion-error"
+                class="mt-3 text-sm font-medium"
+              >
+                AI could not suggest an update this time.
+              </p>
+              <p id="resolve-runbook-prompt" class="mt-3 text-sm text-base-content/60">
+                {if Runbooks.blank?(@runbook),
+                  do: "Note what fixed it, so the next person who gets this alert knows what to do.",
+                  else: "Note anything that was missing or wrong while it's fresh."}
+              </p>
+              <div class="mt-7 flex justify-end gap-3">
+                <button
+                  id="resolve-done"
+                  type="button"
+                  phx-click="close_resolve"
+                  class="btn btn-sm btn-outline"
+                >
+                  Not now
+                </button>
+                <.link
+                  id="resolve-update-runbook"
+                  navigate={runbook_path(@alert)}
+                  class="btn btn-sm btn-primary"
+                >
+                  {if Runbooks.blank?(@runbook), do: "Write runbook", else: "Update runbook"}
+                </.link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Layouts.app>

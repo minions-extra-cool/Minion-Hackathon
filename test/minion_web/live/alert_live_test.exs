@@ -92,8 +92,13 @@ defmodule MinionWeb.AlertLiveTest do
     view |> element("#resolve-confirm") |> render_click()
 
     view
-    |> form("#resolve-runbook-prompt", %{note: "Cleared /var/log on web-1"})
-    |> render_submit(%{next: "close"})
+    |> form("#resolve-note-form", %{note: "Cleared /var/log on web-1"})
+    |> render_submit(%{next: "save"})
+
+    assert has_element?(view, "#resolve-runbook-step")
+    assert has_element?(view, "#resolve-steps [aria-current=step]", "3. Runbook")
+    render_async(view)
+    view |> element("#resolve-close") |> render_click()
 
     refute has_element?(view, "#resolve-confirm-dialog")
     assert has_element?(view, "#alert-resolution-note", "Cleared /var/log on web-1")
@@ -228,20 +233,26 @@ defmodule MinionWeb.AlertLiveTest do
       view |> element("#resolve-confirm") |> render_click()
 
       assert has_element?(view, "#resolve-done-title", "Alert resolved")
-      assert has_element?(view, "#resolve-runbook-prompt", "write a runbook")
+      assert has_element?(view, "#resolve-steps [aria-current=step]", "2. What fixed it")
       refute has_element?(view, "#runbook")
+
+      view |> form("#resolve-note-form") |> render_submit(%{next: "skip"})
+
+      assert has_element?(view, "#resolve-runbook-title", "Write a runbook?")
+      assert has_element?(view, "#resolve-runbook-prompt", "Note what fixed it")
+      refute has_element?(view, "#runbook-suggestion-loading")
 
       {:ok, _editor, html} =
         view
-        |> form("#resolve-runbook-prompt", %{note: "Rotated logs"})
-        |> render_submit(%{next: "runbook"})
+        |> element("#resolve-update-runbook")
+        |> render_click()
         |> follow_redirect(conn, ~p"/rules/#{rule.id}/runbook?#{[from_alert: alert.id]}")
 
       assert html =~ "runbook-form"
-      assert Alerts.get_alert(alert.id).resolution_note == "Rotated logs"
+      assert Alerts.get_alert(alert.id).resolution_note == nil
     end
 
-    test "choosing done closes the dialog and keeps a link to the runbook", %{
+    test "choosing not now closes the dialog and keeps a link to the runbook", %{
       conn: conn,
       alert: alert
     } do
@@ -249,7 +260,8 @@ defmodule MinionWeb.AlertLiveTest do
 
       view |> element("#resolve") |> render_click()
       view |> element("#resolve-confirm") |> render_click()
-      view |> form("#resolve-runbook-prompt") |> render_submit(%{next: "close"})
+      view |> form("#resolve-note-form") |> render_submit(%{next: "skip"})
+      view |> element("#resolve-done") |> render_click()
 
       refute has_element?(view, "#resolve-confirm-dialog")
       assert has_element?(view, "#runbook-edit")
@@ -266,8 +278,15 @@ defmodule MinionWeb.AlertLiveTest do
       view |> element("#resolve") |> render_click()
       view |> element("#resolve-confirm") |> render_click()
 
-      assert has_element?(view, "#resolve-done", "Done")
-      refute has_element?(view, "#resolve-update-runbook")
+      refute has_element?(view, "#resolve-steps", "Runbook")
+      assert has_element?(view, "#resolve-save-note", "Done")
+
+      view
+      |> form("#resolve-note-form", %{note: "Restarted it"})
+      |> render_submit(%{next: "save"})
+
+      refute has_element?(view, "#resolve-confirm-dialog")
+      assert Alerts.get_alert(alert.id).resolution_note == "Restarted it"
     end
   end
 
