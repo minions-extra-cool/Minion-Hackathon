@@ -50,4 +50,43 @@ defmodule MinionWeb.MarkdownTest do
   test "unclosed markers stay as text" do
     assert html("**half and `tick") == "<p>**half and `tick</p>"
   end
+
+  test "nil renders as empty safe html" do
+    assert Markdown.to_html(nil) == {:safe, ""}
+  end
+
+  test "hashes followed by a space become headings" do
+    assert html("# Title\n### Next steps") == "<h1>Title</h1><h3>Next steps</h3>"
+  end
+
+  test "a hash without a space stays text" do
+    assert html("#incidents channel") == "<p>#incidents channel</p>"
+  end
+
+  test "single stars make italic text" do
+    assert html("*soon*, not **now**") == "<p><em>soon</em>, not <strong>now</strong></p>"
+  end
+
+  test "fenced code keeps its line breaks and is escaped" do
+    assert html("```elixir\nIO.puts(\"<hi>\")\n**raw**\n```\nafter") ==
+             "<pre><code>IO.puts(&quot;&lt;hi&gt;&quot;)\n**raw**</code></pre><p>after</p>"
+  end
+
+  test "quotes and thematic breaks get their own elements" do
+    assert html("> check the runbook\n\n---") ==
+             "<blockquote>check the runbook</blockquote><hr>"
+  end
+
+  test "links open in a new tab" do
+    assert html("see [runbook](https://wiki.example/disk)") ==
+             ~s(<p>see <a href="https://wiki.example/disk" target="_blank" rel="noreferrer">runbook</a></p>)
+  end
+
+  test "links with unsafe schemes keep only their label" do
+    rendered = html("[click](javascript:alert(1))")
+
+    assert rendered =~ "click"
+    refute rendered =~ "javascript:"
+    refute rendered =~ "<a"
+  end
 end

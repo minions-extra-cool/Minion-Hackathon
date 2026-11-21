@@ -3,7 +3,7 @@ defmodule MinionWeb.AlertLive do
 
   import MinionWeb.AlertComponents
 
-  alias Minion.AI.{Markdown, Summary}
+  alias Minion.AI.Summary
   alias Minion.{Alerts, Runbooks}
   alias Minion.Rules.Template
 
@@ -78,7 +78,7 @@ defmodule MinionWeb.AlertLive do
       {:noreply,
        socket
        |> assign(ai_summary: AsyncResult.ok(socket.assigns.ai_summary, text))
-       |> assign(ai_summary_html: Markdown.render(text))}
+       |> assign(ai_summary_html: MinionWeb.Markdown.to_html(text))}
 
   def handle_async(:ai_summary, {:ok, {:error, reason}}, socket),
     do:
