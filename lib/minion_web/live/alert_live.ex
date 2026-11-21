@@ -3,8 +3,11 @@ defmodule MinionWeb.AlertLive do
 
   import MinionWeb.AlertComponents
 
+  alias Minion.AI.Summary
   alias Minion.{Alerts, Runbooks}
   alias Minion.Rules.Template
+
+  alias Phoenix.LiveView.AsyncResult
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -19,7 +22,8 @@ defmodule MinionWeb.AlertLive do
        owner: Alerts.owner_name(alert),
        runbook: Runbooks.get_for_rule(alert.rule_id),
        resolve_step: nil,
-       runbook_expanded: false
+       runbook_expanded: false,
+       ai_summary: %AsyncResult{}
      )
      |> stream(:deliveries, Alerts.list_deliveries(alert))}
   end
@@ -57,6 +61,39 @@ defmodule MinionWeb.AlertLive do
     end
   end
 
+  def handle_event("summarize", _params, socket) do
+    alert = socket.assigns.alert
+
+    socket =
+      socket
+      |> assign(ai_summary: AsyncResult.loading())
+      |> assign(ai_summary_html: nil)
+
+    {:noreply, start_async(socket, :ai_summary, fn -> Summary.summarize(alert) end)}
+  end
+
+  @impl true
+  def handle_async(:ai_summary, {:ok, {:ok, text}}, socket),
+    do:
+      {:noreply,
+       socket
+       |> assign(ai_summary: AsyncResult.ok(socket.assigns.ai_summary, text))
+       |> assign(ai_summary_html: MinionWeb.Markdown.to_html(text))}
+
+  def handle_async(:ai_summary, {:ok, {:error, reason}}, socket),
+    do:
+      {:noreply,
+       socket
+       |> assign(ai_summary: AsyncResult.failed(socket.assigns.ai_summary, reason))
+       |> assign(ai_summary_html: nil)}
+
+  def handle_async(:ai_summary, {:exit, reason}, socket),
+    do:
+      {:noreply,
+       socket
+       |> assign(ai_summary: AsyncResult.failed(socket.assigns.ai_summary, {:exit, reason}))
+       |> assign(ai_summary_html: nil)}
+
   defp after_transition({:ok, alert}, socket, _conflict_message),
     do: {:noreply, assign(socket, :alert, %{alert | rule: socket.assigns.alert.rule})}
 
@@ -89,6 +126,20 @@ defmodule MinionWeb.AlertLive do
   defp channel_label(:sms), do: "SMS"
   defp channel_label(:phone), do: "phone call"
   defp channel_label(channel), do: to_string(channel)
+
+  defp summarize_label(%AsyncResult{loading: true}), do: "Summarising…"
+  defp summarize_label(%AsyncResult{ok?: true}), do: "Regenerate summary"
+  defp summarize_label(_result), do: "Summarise with Gemini"
+
+  defp describe_failure(:not_configured),
+    do: "Gemini is not configured. Set GEMINI_API_KEY and restart the server."
+
+  defp describe_failure({:unreachable, message}), do: "Gemini could not be reached: #{message}"
+
+  defp describe_failure({:api_error, status, message}),
+    do: "Gemini answered #{status}: #{message}"
+
+  defp describe_failure(_reason), do: "Could not summarise this alert."
 
   defp delivery_icon(:delivered), do: "hero-check-circle-micro"
   defp delivery_icon(:pending), do: "hero-arrow-path-micro"
@@ -260,6 +311,54 @@ defmodule MinionWeb.AlertLive do
           <.runbook_panel alert={@alert} runbook={@runbook} />
         </div>
       </div>
+
+      <section id="ai-summary" class="mt-8 border-t border-base-300 pt-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
+            AI summary
+          </h2>
+          <button
+            id="summarize-alert"
+            phx-click="summarize"
+            disabled={@ai_summary.loading}
+            class="btn btn-sm btn-primary"
+          >
+            <.icon
+              :if={@ai_summary.loading}
+              name="hero-arrow-path-mini"
+              class="size-4 animate-spin"
+            />
+            {summarize_label(@ai_summary)}
+          </button>
+        </div>
+
+        <div
+          :if={@ai_summary.ok?}
+          id="ai-summary-text"
+          class={[
+            "mt-3 w-full max-w-4xl text-sm leading-relaxed text-base-content/90 [overflow-wrap:anywhere]",
+            "[&_h1]:mt-4 [&_h1]:text-lg [&_h1]:font-semibold",
+            "[&_h2]:mt-4 [&_h2]:text-base [&_h2]:font-semibold",
+            "[&_h3]:mt-3 [&_h3]:text-sm [&_h3]:font-semibold",
+            "[&_p]:my-2",
+            "[&_ul]:my-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5",
+            "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5",
+            "[&_li]:leading-relaxed",
+            "[&_code]:bg-base-200 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs",
+            "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-base-300 [&_pre]:bg-base-200 [&_pre]:p-3",
+            "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+            "[&_a]:underline [&_a]:decoration-primary [&_a]:break-words hover:[&_a]:text-primary",
+            "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-3 [&_blockquote]:text-base-content/70",
+            "[&_hr]:my-4 [&_hr]:border-base-300"
+          ]}
+        >
+          {@ai_summary_html}
+        </div>
+
+        <p :if={@ai_summary.failed} id="ai-summary-error" class="mt-3 text-sm text-error">
+          {describe_failure(@ai_summary.failed)}
+        </p>
+      </section>
 
       <div
         :if={@runbook_expanded}

@@ -56,3 +56,11 @@ config :phoenix,
 config :minion, Minion.Channels.Gateway,
   url: "http://fake-gateway.test/messages",
   req_options: [plug: {Req.Test, Minion.Channels.Gateway}]
+
+config :minion, :gemini,
+  api_key: "test-key",
+  model: "gemini-test",
+  base_url: "https://gemini.test",
+  req_options: [plug: {Req.Test, Minion.AI.Gemini}]
+
+config :minion, :ai_client, Minion.AI.StubClient
