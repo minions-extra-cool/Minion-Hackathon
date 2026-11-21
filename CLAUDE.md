@@ -51,6 +51,8 @@ source adapters ─► Kafka topic "events" ─► pipeline: match rules ─► 
 
 - `conditions` nodes (named this way because `when` is a reserved word in Elixir and SQL): `{"all": [...]}`, `{"any": [...]}`, or `{"field", "op", "value"}`. Fields are dot paths into the envelope.
 - Operators: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `matches` (`*` wildcard), `exists`.
+- Matching semantics (`Minion.Rules.Matcher`): text comparisons ignore case; numbers compare by value even when either side is a string (`"500"` equals `500`); a missing field makes the condition false, including `neq`; an unknown operator or malformed node is false, never an error. Paths can index lists (`payload.errors.0.code`).
+- Templates (`Minion.Rules.Template`): `{{payload.host}}` is replaced by the value at that path; missing values render as empty text, objects as JSON.
 - Fingerprint: hash of the rule id plus the values at `dedup.key`. At most one unresolved alert per fingerprint (enforced by a unique index).
 - `quiet_sec`: an unresolved alert with no events for this long is auto-resolved.
 
