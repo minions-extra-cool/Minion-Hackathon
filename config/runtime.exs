@@ -20,6 +20,54 @@ if System.get_env("PHX_SERVER") do
   config :minion, MinionWeb.Endpoint, server: true
 end
 
+if config_env() == :dev and File.exists?(".env") do
+  for line <- File.read!(".env") |> String.split("\n") do
+    case String.trim(line) do
+      "" ->
+        :ok
+
+      "#" <> _comment ->
+        :ok
+
+      line ->
+        case String.split(line, "=", parts: 2) do
+          [key, value] ->
+            key = String.trim(key)
+            value = String.trim(value)
+
+            value =
+              cond do
+                String.length(value) >= 2 and String.first(value) == "\"" and
+                    String.last(value) == "\"" ->
+                  String.slice(value, 1..(String.length(value) - 2))
+
+                String.length(value) >= 2 and String.first(value) == "'" and
+                    String.last(value) == "'" ->
+                  String.slice(value, 1..(String.length(value) - 2))
+
+                true ->
+                  value
+              end
+
+            unless System.get_env(key), do: System.put_env(key, value)
+
+          _invalid ->
+            :ok
+        end
+    end
+  end
+end
+
+if config_env() != :test do
+  config :minion, :gemini,
+    api_key: System.get_env("GEMINI_API_KEY"),
+    model: System.get_env("GEMINI_MODEL", "gemini-2.5-flash")
+end
+
+if base_url = System.get_env("GEMINI_BASE_URL") do
+  config :minion, :gemini, base_url: base_url
+end
+
 port = String.to_integer(System.get_env("PORT", "4000"))
 
 config :minion, MinionWeb.Endpoint, http: [port: port]

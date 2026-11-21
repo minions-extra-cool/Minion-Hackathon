@@ -7,6 +7,16 @@ defmodule MinionWeb.AlertLiveTest do
   alias Minion.Alerts
 
   setup do
+    previous_client = Application.get_env(:minion, :ai_client)
+
+    on_exit(fn ->
+      if previous_client,
+        do: Application.put_env(:minion, :ai_client, previous_client),
+        else: Application.delete_env(:minion, :ai_client)
+    end)
+
+    Application.put_env(:minion, :ai_client, Minion.AI.StubClient)
+
     team = team_fixture()
 
     rule =
@@ -203,5 +213,52 @@ defmodule MinionWeb.AlertLiveTest do
       assert has_element?(view, "#resolve-done", "Done")
       refute has_element?(view, "#resolve-update-runbook")
     end
+  end
+
+  test "summarizing renders markdown in the AI summary", %{conn: conn, alert: alert} do
+    previous = Application.get_env(:minion, :ai_stub_response)
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:minion, :ai_stub_response, previous),
+        else: Application.delete_env(:minion, :ai_stub_response)
+    end)
+
+    Application.put_env(
+      :minion,
+      :ai_stub_response,
+      {:ok, "## What happened\n\nDisk on **web-1** is nearly full.\n\n- run `df -h`\n- restart"}
+    )
+
+    {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+
+    html = view |> element("#summarize-alert") |> render_click()
+    assert html =~ "Summarising"
+
+    assert render_async(view) =~ "What happened"
+    assert has_element?(view, "#ai-summary-text h2", "What happened")
+    assert has_element?(view, "#ai-summary-text strong", "web-1")
+    assert has_element?(view, "#ai-summary-text code", "df -h")
+    assert has_element?(view, "#ai-summary-text li", "restart")
+    assert has_element?(view, "#summarize-alert", "Regenerate summary")
+  end
+
+  test "a failing Gemini call explains itself", %{conn: conn, alert: alert} do
+    previous = Application.get_env(:minion, :ai_stub_response)
+
+    on_exit(fn ->
+      if previous,
+        do: Application.put_env(:minion, :ai_stub_response, previous),
+        else: Application.delete_env(:minion, :ai_stub_response)
+    end)
+
+    Application.put_env(:minion, :ai_stub_response, {:error, {:api_error, 429, "quota exceeded"}})
+
+    {:ok, view, _html} = live(conn, ~p"/alerts/#{alert.id}")
+    view |> element("#summarize-alert") |> render_click()
+
+    assert render_async(view) =~ "Gemini answered 429"
+    assert has_element?(view, "#ai-summary-error", "Gemini answered 429: quota exceeded")
+    refute has_element?(view, "#ai-summary-text")
   end
 end

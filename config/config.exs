@@ -60,6 +60,10 @@ config :minion, :kafka_sources, [
   %{topic: "trade-events", source: "trading-platform"}
 ]
 
+config :minion, :gemini,
+  model: "gemini-2.5-flash",
+  base_url: "https://generativelanguage.googleapis.com"
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
