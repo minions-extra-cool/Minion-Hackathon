@@ -26,7 +26,8 @@ defmodule Minion.Channels do
   def permanent_error?(name, reason) do
     module = module_for(name)
 
-    module != nil and function_exported?(module, :permanent_errors, 0) and
+    module != nil and Code.ensure_loaded?(module) and
+      function_exported?(module, :permanent_errors, 0) and
       reason in module.permanent_errors()
   end
 
