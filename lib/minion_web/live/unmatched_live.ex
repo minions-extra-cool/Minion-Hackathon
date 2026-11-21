@@ -11,15 +11,23 @@ defmodule MinionWeb.UnmatchedLive do
 
     {:ok,
      socket
-     |> assign(page_title: "Unmatched events")
+     |> assign(page_title: "Unmatched events", dismissing: nil)
      |> stream(:shapes, Unmatched.list_recent())}
   end
 
   @impl true
-  def handle_event("dismiss", %{"id" => id}, socket) do
+  def handle_event("ask_dismiss", %{"id" => id, "label" => label}, socket),
+    do: {:noreply, assign(socket, dismissing: %{id: id, label: label})}
+
+  def handle_event("cancel_dismiss", _params, socket),
+    do: {:noreply, assign(socket, dismissing: nil)}
+
+  def handle_event("confirm_dismiss", _params, %{assigns: %{dismissing: %{id: id}}} = socket) do
     :ok = Unmatched.dismiss(id)
-    {:noreply, socket}
+    {:noreply, assign(socket, dismissing: nil)}
   end
+
+  def handle_event("confirm_dismiss", _params, socket), do: {:noreply, socket}
 
   @impl true
   def handle_info({:unmatched, shape}, socket),
@@ -32,6 +40,13 @@ defmodule MinionWeb.UnmatchedLive do
     case Unmatched.identifying_field(shape) do
       {field, value} -> {String.replace_prefix(field, "payload.", ""), value}
       nil -> nil
+    end
+  end
+
+  defp label(shape) do
+    case kind(shape) do
+      {_field, value} -> "#{value} from #{shape.source}"
+      nil -> shape.source
     end
   end
 
@@ -102,8 +117,9 @@ defmodule MinionWeb.UnmatchedLive do
                 <button
                   id={"#{dom_id}-dismiss"}
                   type="button"
-                  phx-click="dismiss"
+                  phx-click="ask_dismiss"
                   phx-value-id={shape.id}
+                  phx-value-label={label(shape)}
                   class="btn btn-xs btn-ghost"
                 >
                   Dismiss
@@ -112,6 +128,44 @@ defmodule MinionWeb.UnmatchedLive do
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div
+        :if={@dismissing}
+        id="dismiss-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dismiss-dialog-title"
+        phx-window-keydown="cancel_dismiss"
+        phx-key="Escape"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-base-content/20 p-4"
+      >
+        <div class="w-full max-w-md bg-base-100 p-8 shadow-xl" phx-click-away="cancel_dismiss">
+          <h2 id="dismiss-dialog-title" class="text-lg font-semibold tracking-tight">
+            Dismiss {@dismissing.label}?
+          </h2>
+          <p class="mt-3 text-sm text-base-content/60">
+            It comes back if a matching event arrives again.
+          </p>
+          <div class="mt-7 flex justify-end gap-3">
+            <button
+              id="dismiss-cancel"
+              type="button"
+              phx-click="cancel_dismiss"
+              class="btn btn-sm btn-outline"
+            >
+              Cancel
+            </button>
+            <button
+              id="dismiss-confirm"
+              type="button"
+              phx-click="confirm_dismiss"
+              class="btn btn-sm btn-primary"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
       </div>
     </Layouts.app>
     """

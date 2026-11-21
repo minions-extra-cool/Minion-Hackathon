@@ -31,12 +31,22 @@ defmodule MinionWeb.UnmatchedLiveTest do
     assert has_element?(view, "#shapes-#{other.id}", "invoice.failed")
   end
 
-  test "dismiss removes a shape", %{conn: conn} do
+  test "dismiss asks first, then removes the shape", %{conn: conn} do
     shape = Unmatched.record(event("ops-monitor", %{"type" => "CPU_HIGH"}))
     {:ok, view, _html} = live(conn, ~p"/unmatched")
 
     view |> element("#shapes-#{shape.id}-dismiss") |> render_click()
+    assert has_element?(view, "#dismiss-dialog", "CPU_HIGH from ops-monitor")
+    assert has_element?(view, "#shapes-#{shape.id}")
 
+    view |> element("#dismiss-cancel") |> render_click()
+    refute has_element?(view, "#dismiss-dialog")
+    assert has_element?(view, "#shapes-#{shape.id}")
+
+    view |> element("#shapes-#{shape.id}-dismiss") |> render_click()
+    view |> element("#dismiss-confirm") |> render_click()
+
+    refute has_element?(view, "#dismiss-dialog")
     refute has_element?(view, "#shapes-#{shape.id}")
   end
 
