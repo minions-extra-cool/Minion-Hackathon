@@ -81,6 +81,10 @@ if events_partitions = System.get_env("EVENTS_PARTITIONS") do
   config :minion, :kafka, events_partitions: String.to_integer(events_partitions)
 end
 
+if processors = System.get_env("PIPELINE_PROCESSORS") do
+  config :minion, :pipeline, processors: String.to_integer(processors)
+end
+
 if config_env() == :dev do
   # Reload browser tabs when matching files change.
   config :minion, MinionWeb.Endpoint,

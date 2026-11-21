@@ -27,9 +27,12 @@ defmodule Minion.Alerts.Pipeline do
            fetch_config: [max_wait_time: @poll_interval_ms]},
         concurrency: @producers
       ],
-      processors: [default: [concurrency: System.schedulers_online()]]
+      processors: [default: [concurrency: processors()]]
     )
   end
+
+  def processors,
+    do: Application.get_env(:minion, :pipeline)[:processors] || System.schedulers_online()
 
   @impl true
   def handle_message(_processor, message, _context) do
