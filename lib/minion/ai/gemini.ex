@@ -1,13 +1,16 @@
 defmodule Minion.AI.Gemini do
+  @behaviour Minion.AI.Provider
+
   alias Req.Response
 
   @default_base_url "https://generativelanguage.googleapis.com"
   @default_model "gemini-2.5-flash"
+  @default_max_output_tokens 800
 
-  @spec generate(String.t()) :: {:ok, String.t()} | {:error, term()}
-  def generate(prompt) when is_binary(prompt) do
+  @impl Minion.AI.Provider
+  def generate(prompt, opts \\ []) when is_binary(prompt) do
     with {:ok, api_key} <- api_key(),
-         {:ok, response} <- request(prompt, api_key) do
+         {:ok, response} <- request(prompt, api_key, opts) do
       parse(response)
     end
   end
@@ -19,13 +22,20 @@ defmodule Minion.AI.Gemini do
     end
   end
 
-  defp request(prompt, api_key) do
+  defp request(prompt, api_key, opts) do
+    generation_config =
+      %{
+        temperature: 0.2,
+        maxOutputTokens: Keyword.get(opts, :max_output_tokens, @default_max_output_tokens)
+      }
+      |> then(&if(opts[:json], do: Map.put(&1, :responseMimeType, "application/json"), else: &1))
+
     options =
       [
         headers: [{"x-goog-api-key", api_key}],
         json: %{
           contents: [%{role: "user", parts: [%{text: prompt}]}],
-          generationConfig: %{temperature: 0.2, maxOutputTokens: 800}
+          generationConfig: generation_config
         },
         connect_options: [timeout: 10_000],
         receive_timeout: 30_000,

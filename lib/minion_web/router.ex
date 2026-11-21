@@ -17,14 +17,22 @@ defmodule MinionWeb.Router do
   scope "/", MinionWeb do
     pipe_through :browser
 
-    live "/", DashboardLive
-    live "/unmatched", UnmatchedLive
-    live "/alerts/:id", AlertLive
-    live "/rules", RulesLive
-    live "/rules/new", RuleEditorLive, :new
-    live "/rules/:id", RuleEditorLive, :edit
-    live "/rules/:id/runbook", RunbookLive
-    live "/gateway", FakeGatewayLive
+    post "/session/person", SessionController, :create
+    delete "/session/person", SessionController, :delete
+
+    live_session :default, on_mount: MinionWeb.CurrentPerson do
+      live "/", DashboardLive
+      live "/unmatched", UnmatchedLive
+      live "/alerts/:id", AlertLive
+      live "/rules", RulesLive
+      live "/rules/new", RuleEditorLive, :new
+      live "/rules/:id", RuleEditorLive, :edit
+      live "/rules/:id/runbook", RunbookLive
+      live "/gateway", FakeGatewayLive
+      live "/people/:id", PersonLive
+      live "/teams", TeamsLive
+      live "/teams/:id", TeamLive
+    end
   end
 
   scope "/ingest", MinionWeb do

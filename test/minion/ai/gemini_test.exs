@@ -3,6 +3,23 @@ defmodule Minion.AI.GeminiTest do
 
   alias Minion.AI.Gemini
 
+  test "asks for JSON and a larger answer when told to" do
+    Req.Test.stub(Gemini, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+
+      assert %{
+               "generationConfig" => %{
+                 "responseMimeType" => "application/json",
+                 "maxOutputTokens" => 4096
+               }
+             } = Jason.decode!(body)
+
+      Req.Test.json(conn, %{"candidates" => [%{"content" => %{"parts" => [%{"text" => "{}"}]}}]})
+    end)
+
+    assert {:ok, "{}"} = Gemini.generate("hi", json: true, max_output_tokens: 4096)
+  end
+
   test "returns the text of the first candidate" do
     Req.Test.stub(Gemini, fn conn ->
       {:ok, body, conn} = Plug.Conn.read_body(conn)

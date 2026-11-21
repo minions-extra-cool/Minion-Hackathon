@@ -7,11 +7,9 @@ defmodule Minion.AI.Summary do
   @max_runbook_chars 4_000
 
   @spec summarize(Alert.t(), module()) :: {:ok, String.t()} | {:error, term()}
-  def summarize(%Alert{} = alert, client \\ default_client()) do
-    client.generate(build_prompt(alert))
+  def summarize(%Alert{} = alert, client \\ Minion.AI.client()) do
+    client.generate(build_prompt(alert), [])
   end
-
-  defp default_client, do: Application.get_env(:minion, :ai_client, Minion.AI.Gemini)
 
   @spec build_prompt(Alert.t()) :: String.t()
   def build_prompt(%Alert{} = alert) do

@@ -31,7 +31,9 @@ defmodule MinionWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
-  attr :active, :atom, default: nil, values: [nil, :dashboard, :rules]
+  attr :active, :atom, default: nil, values: [nil, :dashboard, :rules, :teams]
+  attr :current_person, :map, default: nil
+  attr :people, :list, default: []
 
   slot :inner_block, required: true
 
@@ -67,7 +69,20 @@ defmodule MinionWeb.Layouts do
               Rules
             </.link>
           </li>
+          <li>
+            <.link
+              id="nav-teams"
+              navigate={~p"/teams"}
+              class={[
+                "px-3 py-1.5 transition-colors hover:bg-base-200",
+                @active == :teams && "bg-primary/60 font-medium hover:bg-primary/70"
+              ]}
+            >
+              Teams
+            </.link>
+          </li>
         </ul>
+        <.person_menu current_person={@current_person} people={@people} />
       </nav>
     </header>
 
@@ -78,6 +93,53 @@ defmodule MinionWeb.Layouts do
     </main>
 
     <.flash_group flash={@flash} />
+    """
+  end
+
+  attr :current_person, :map, default: nil
+  attr :people, :list, default: []
+
+  def person_menu(assigns) do
+    ~H"""
+    <div id="person-menu" class="dropdown dropdown-end ml-auto">
+      <div
+        id="person-menu-button"
+        tabindex="0"
+        role="button"
+        class={[
+          "btn btn-sm gap-2 font-normal",
+          if(@current_person, do: "btn-ghost", else: "btn-outline")
+        ]}
+      >
+        <.icon name="hero-user-circle-mini" class="size-5" />
+        <span :if={@current_person} id="current-person-name">{@current_person.name}</span>
+        <span :if={!@current_person}>Who are you?</span>
+        <.icon name="hero-chevron-down-micro" class="size-4 text-base-content/50" />
+      </div>
+      <ul
+        tabindex="0"
+        class="dropdown-content menu z-40 mt-1 w-60 border border-base-300 bg-base-100 p-2 shadow-lg"
+      >
+        <li :if={@current_person}>
+          <.link id="my-profile" navigate={~p"/people/#{@current_person.id}"}>
+            <.icon name="hero-adjustments-horizontal-mini" class="size-4" /> Profile and notifications
+          </.link>
+        </li>
+        <li class="menu-title text-xs">
+          {if @current_person, do: "Switch to", else: "Act as"}
+        </li>
+        <li :for={person <- @people} :if={!@current_person || person.id != @current_person.id}>
+          <.link
+            id={"act-as-#{person.id}"}
+            href={~p"/session/person?#{[person_id: person.id]}"}
+            method="post"
+          >
+            {person.name}
+            <span :if={person.team} class="text-xs text-base-content/50">{person.team.name}</span>
+          </.link>
+        </li>
+      </ul>
+    </div>
     """
   end
 
